@@ -2958,30 +2958,162 @@ function addNewVisitRow(clientName, jobTitle, isToday, time, visitDate, isTomorr
 
   const workerClickable = !workerData;
   row.innerHTML = `<div class="visit-time">${time}</div><div class="visit-dot" style="background:#d4d4d8;"></div><div class="visit-name">${jobTitle}<span style="display:block;font-size:11.5px;font-weight:400;color:var(--muted-foreground);margin-top:1px;">${clientName}</span></div><div class="visit-worker" style="gap:7px;${workerClickable?'cursor:pointer;':''}" ${workerClickable?`onclick="event.stopPropagation();openAssignPopup('${visitId}')" title="Assign a worker"`:``}>${workerHtml}</div><div class="visit-type"><span style="font-size:11px;font-weight:500;padding:3px 8px;border-radius:4px;background:#dbeafe;color:#1e40af;border:1px solid #bfdbfe;">Scheduled</span></div>`;
+  row.onclick = function(e) { if (!e.target.closest('.visit-worker[onclick]')) openUserVisitModal(visitId); };
 
   targetGroup.appendChild(row);
   sortVisitsContent();
 
 }
 
+var _uvmRsDate = '';
+var _uvmRsTime = '';
+
 function openUserVisitModal(visitId) {
   const v = userVisits.find(x => x.id === visitId);
   if (!v) return;
 
   const modal = document.getElementById('userVisitModal');
+  modal._visitId = visitId;
 
+  // Header
   document.getElementById('uvm-title').textContent = v.jobTitle;
-  document.getElementById('uvm-client').textContent = v.clientName;
   const dayLabel = v.isToday ? 'Today' : v.isTomorrow ? 'Tomorrow' : v.visitDate ? v.visitDate.toLocaleDateString('en-US', {weekday:'short', month:'short', day:'numeric'}) : 'Upcoming';
   document.getElementById('uvm-time').textContent = dayLabel + ' · ' + v.time;
-  document.getElementById('uvm-status').textContent = v.status;
+
+  // Status badge
+  const badge = document.getElementById('uvm-status-badge');
+  if (v.status === 'Completed') {
+    badge.textContent = 'Completed'; badge.style.cssText = 'display:inline-flex;padding:2px 10px;border-radius:9999px;font-size:11px;font-weight:600;background:#dcfce7;color:#166534;border:1px solid #bbf7d0;';
+    document.getElementById('uvm-complete-btn').textContent = '✓ Completed';
+    document.getElementById('uvm-complete-btn').disabled = true;
+    document.getElementById('uvm-complete-btn').style.opacity = '0.5';
+    document.getElementById('uvm-complete-btn').style.cursor = 'not-allowed';
+  } else {
+    badge.textContent = 'Scheduled'; badge.style.cssText = 'display:inline-flex;padding:2px 10px;border-radius:9999px;font-size:11px;font-weight:600;background:#dbeafe;color:#1e40af;border:1px solid #bfdbfe;';
+    document.getElementById('uvm-complete-btn').textContent = 'Mark as complete ✓';
+    document.getElementById('uvm-complete-btn').disabled = false;
+    document.getElementById('uvm-complete-btn').style.opacity = '1';
+    document.getElementById('uvm-complete-btn').style.cursor = 'pointer';
+  }
+
+  // Client info
+  const client = wizClients.find(c => !c._isWorker && c.name.toLowerCase() === v.clientName.toLowerCase());
+  const ini = client ? client.ini : (v.clientName.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase() || 'CL');
+  const color = client ? client.color : '#1a3a5c';
+  const avatar = document.getElementById('uvm-client-avatar');
+  avatar.textContent = ini; avatar.style.background = color;
+  document.getElementById('uvm-client-name').textContent = v.clientName;
+  document.getElementById('uvm-client-addr').textContent = client?.addr || '';
+  document.getElementById('uvm-client-addr').style.display = client?.addr ? 'block' : 'none';
+  document.getElementById('uvm-client-phone').textContent = client?.phone || '';
+  document.getElementById('uvm-client-phone').style.display = client?.phone ? 'block' : 'none';
+
+  // Job description
+  document.getElementById('uvm-job-desc').textContent = v.jobTitle;
 
   // Worker section
-  const workerSection = document.getElementById('uvm-worker-section');
+  uvmRenderWorker(v, visitId);
+
+  // Reset reschedule
+  _uvmRsDate = ''; _uvmRsTime = '';
+  document.getElementById('uvm-reschedule-body').style.display = 'none';
+  uvmInitRsDates();
+
+  modal.style.display = 'flex';
+}
+
+function uvmToggleReschedule() {
+  const body = document.getElementById('uvm-reschedule-body');
+  body.style.display = body.style.display === 'none' ? 'block' : 'none';
+}
+
+function uvmInitRsDates() {
+  const container = document.getElementById('uvm-rs-dates');
+  const today = new Date();
+  container.innerHTML = '';
+  _uvmRsDate = ''; _uvmRsTime = '';
+  document.getElementById('uvm-rs-times-wrap').style.display = 'none';
+  uvmRefreshRsBtn();
+  for (let i = 0; i < 4; i++) {
+    const d = new Date(today); d.setDate(today.getDate() + i);
+    const s = wizFmt(d);
+    const label = i === 0 ? 'Today' : i === 1 ? 'Tomorrow' : wizFmtShort(s);
+    const btn = document.createElement('button');
+    btn.className = 'wiz-quick-btn'; btn.textContent = label;
+    btn.onclick = () => {
+      _uvmRsDate = s; _uvmRsTime = '';
+      container.querySelectorAll('.wiz-quick-btn').forEach(b => b.classList.remove('sel'));
+      btn.classList.add('sel');
+      const timesWrap = document.getElementById('uvm-rs-times-wrap');
+      timesWrap.style.display = 'block';
+      document.getElementById('uvm-rs-times').innerHTML = wizTimes.map(t =>
+        `<div class="wiz-timeslot" onclick="uvmPickRsTime('${t}',this)">${t}</div>`).join('');
+      uvmRefreshRsBtn();
+    };
+    container.appendChild(btn);
+  }
+}
+
+function uvmPickRsTime(t, el) {
+  _uvmRsTime = t;
+  document.querySelectorAll('#uvm-rs-times .wiz-timeslot').forEach(x => x.classList.remove('sel'));
+  el.classList.add('sel');
+  uvmRefreshRsBtn();
+}
+
+function uvmRefreshRsBtn() {
+  const btn = document.getElementById('uvm-rs-save');
+  if (!btn) return;
+  const ok = !!_uvmRsDate && !!_uvmRsTime;
+  btn.disabled = !ok;
+  btn.style.background = ok ? 'var(--primary)' : 'var(--muted)';
+  btn.style.color = ok ? 'var(--primary-foreground)' : 'var(--muted-foreground)';
+  btn.style.cursor = ok ? 'pointer' : 'not-allowed';
+}
+
+function uvmSaveReschedule() {
+  const modal = document.getElementById('userVisitModal');
+  const visitId = modal._visitId;
+  const v = userVisits.find(x => x.id === visitId);
+  if (!v || !_uvmRsDate || !_uvmRsTime) return;
+  v.time = _uvmRsTime;
+  const [y, m, d] = _uvmRsDate.split('-').map(Number);
+  const newDate = new Date(y, m-1, d);
+  const today = new Date(); today.setHours(0,0,0,0);
+  const tom = new Date(today); tom.setDate(today.getDate()+1);
+  v.isToday = newDate.getTime() === today.getTime();
+  v.isTomorrow = newDate.getTime() === tom.getTime();
+  v.visitDate = newDate;
+  // Update row time label
+  const row = document.querySelector(`[data-visit-id="${visitId}"]`);
+  if (row) { const timeEl = row.querySelector('.visit-time'); if (timeEl) timeEl.textContent = _uvmRsTime; }
+  const dayLabel = v.isToday ? 'today' : v.isTomorrow ? 'tomorrow' : wizFmtShort(_uvmRsDate);
+  closeUserVisitModal();
+  showToast('Rescheduled to ' + dayLabel + ' at ' + _uvmRsTime);
+}
+
+function uvmMarkComplete() {
+  const modal = document.getElementById('userVisitModal');
+  const visitId = modal._visitId;
+  const v = userVisits.find(x => x.id === visitId);
+  if (!v || v.status === 'Completed') return;
+  v.status = 'Completed';
+  // Update row badge + dot
+  const row = document.querySelector(`[data-visit-id="${visitId}"]`);
+  if (row) {
+    const dot = row.querySelector('.visit-dot');
+    if (dot) { dot.style.background = '#22c55e'; dot.style.boxShadow = '0 0 0 2px #dcfce7'; }
+    const badge = row.querySelector('.visit-type span');
+    if (badge) { badge.style.background = '#dcfce7'; badge.style.color = '#166534'; badge.style.borderColor = '#bbf7d0'; badge.textContent = 'Completed'; }
+  }
+  closeUserVisitModal();
+  showToast(v.jobTitle + ' marked as complete');
+}
+
+// ── Worker section helpers ──
+function uvmRenderWorker(v, visitId) {
   const assignedRow   = document.getElementById('uvm-assigned-row');
   const unassignedRow = document.getElementById('uvm-unassigned-row');
-  const workerSelect  = document.getElementById('uvm-worker-select');
-
   if (v.worker) {
     assignedRow.style.display = 'flex';
     unassignedRow.style.display = 'none';
@@ -2989,38 +3121,102 @@ function openUserVisitModal(visitId) {
     document.getElementById('uvm-worker-avatar').textContent = v.worker.ini;
     document.getElementById('uvm-worker-name').textContent = v.worker.name;
     document.getElementById('uvm-worker-email').textContent = v.worker.email || '';
+    const pendingBadge = document.getElementById('uvm-worker-pending');
+    if (pendingBadge) pendingBadge.style.display = v.worker.pending ? 'inline-flex' : 'none';
   } else {
     assignedRow.style.display = 'none';
-    // Build worker list from wizClients that are real workers (from invites)
-    const workers = wizClients.filter(c => c._isWorker);
-    if (workers.length > 0) {
-      unassignedRow.style.display = 'block';
-      workerSelect.innerHTML = '<option value="">Assign a worker…</option>' +
-        workers.map(w => `<option value="${w.id}">${w.name}</option>`).join('');
-      workerSelect.onchange = () => {
-        const sel = workers.find(w => w.id === workerSelect.value);
-        if (!sel) return;
-        v.worker = { name: sel.name, ini: sel.ini, color: sel.color, email: sel.email || '' };
-        // Update the row in Today
-        const row = document.querySelector(`[data-visit-id="${visitId}"]`);
-        if (row) {
-          const workerEl = row.querySelector('.visit-worker');
-          if (workerEl) workerEl.innerHTML = `<div class="worker-avatar" style="background:${sel.color}">${sel.ini}</div><span class="worker-name-text">${sel.name}</span>`;
-        }
-        closeUserVisitModal();
-        showToast(sel.name + ' assigned to ' + v.jobTitle);
-      };
-    } else {
-      // No workers added yet — show locked state
-      unassignedRow.style.display = 'block';
-      workerSelect.innerHTML = '<option value="">No workers added yet</option>';
-      workerSelect.disabled = true;
-      document.getElementById('uvm-no-workers-hint').textContent = 'Invite a technician first to assign them to visits.';
+    unassignedRow.style.display = 'flex';
+    uvmHideInviteForm();
+  }
+}
+
+function uvmAssignToMe() {
+  const modal = document.getElementById('userVisitModal');
+  const visitId = modal._visitId;
+  const v = userVisits.find(x => x.id === visitId);
+  if (!v) return;
+  v.worker = { name: 'Me', ini: 'Me', color: '#71717a', email: '', pending: false };
+  uvmRenderWorker(v, visitId);
+  // Update row
+  const row = document.querySelector(`[data-visit-id="${visitId}"]`);
+  if (row) {
+    const workerEl = row.querySelector('.visit-worker');
+    if (workerEl) {
+      workerEl.style.cursor = '';
+      workerEl.onclick = null;
+      workerEl.innerHTML = `<div class="worker-avatar" style="background:#71717a;font-size:10px;">Me</div><span class="worker-name-text">Me</span>`;
     }
   }
+  showToast('Assigned to you');
+}
 
-  modal.style.display = 'flex';
-  modal._visitId = visitId;
+function uvmShowInviteForm() {
+  document.getElementById('uvm-invite-form').style.display = 'block';
+  document.getElementById('uvm-inv-email').value = '';
+  uvmRefreshInviteBtn();
+  setTimeout(() => document.getElementById('uvm-inv-email').focus(), 50);
+}
+
+function uvmHideInviteForm() {
+  const f = document.getElementById('uvm-invite-form');
+  if (f) f.style.display = 'none';
+}
+
+function uvmRefreshInviteBtn() {
+  const name = (document.getElementById('uvm-inv-email')?.value || '').trim();
+  const btn = document.getElementById('uvm-inv-send');
+  if (!btn) return;
+  btn.disabled = !name;
+  btn.style.background = name ? 'var(--primary)' : 'var(--muted)';
+  btn.style.color = name ? 'var(--primary-foreground)' : 'var(--muted-foreground)';
+  btn.style.cursor = name ? 'pointer' : 'not-allowed';
+}
+
+function uvmSendInvite() {
+  const modal = document.getElementById('userVisitModal');
+  const visitId = modal._visitId;
+  const v = userVisits.find(x => x.id === visitId);
+  if (!v) return;
+  const email = (document.getElementById('uvm-inv-email')?.value || '').trim();
+  if (!email) return;
+  const name  = email.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, c => c.toUpperCase()).trim() || email;
+  const ini   = name.split(' ').filter(Boolean).map(w => w[0].toUpperCase()).join('').slice(0, 2) || 'W';
+  const colors = ['#2d5a8e','#4a7c6f','#7c4a3a','#5a3a7c','#3a7c5a','#7c6a2d'];
+  const color = colors[wizClients.length % colors.length];
+  // Add to wizClients as pending worker
+  const workerId = 'w-inv-' + Date.now();
+  wizClients.push({ id: workerId, name, ini, color, email, _isWorker: true, _pending: true, jobs: [] });
+  v.worker = { name, ini, color, email, pending: true };
+  uvmRenderWorker(v, visitId);
+  // Update visit row
+  const row = document.querySelector(`[data-visit-id="${visitId}"]`);
+  if (row) {
+    const workerEl = row.querySelector('.visit-worker');
+    if (workerEl) {
+      workerEl.style.cursor = '';
+      workerEl.onclick = null;
+      workerEl.innerHTML = `<div class="worker-avatar" style="background:${color}">${ini}</div><span class="worker-name-text">${name} <span style="font-size:10px;color:var(--muted-foreground);">(pending)</span></span>`;
+    }
+  }
+  showToast('Invite sent to ' + name + (email ? ' · ' + email : ''));
+}
+
+function uvmUnassignWorker() {
+  const modal = document.getElementById('userVisitModal');
+  const visitId = modal._visitId;
+  const v = userVisits.find(x => x.id === visitId);
+  if (!v) return;
+  v.worker = null;
+  uvmRenderWorker(v, visitId);
+  const row = document.querySelector(`[data-visit-id="${visitId}"]`);
+  if (row) {
+    const workerEl = row.querySelector('.visit-worker');
+    if (workerEl) {
+      workerEl.style.cursor = 'pointer';
+      workerEl.onclick = (e) => { e.stopPropagation(); openUserVisitModal(visitId); };
+      workerEl.innerHTML = `<div style="width:22px;height:22px;border-radius:50%;background:var(--muted);border:1.5px dashed var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:center;"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--muted-foreground)" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div><span style="font-size:12px;color:var(--muted-foreground);text-decoration:underline;text-underline-offset:2px;">No worker</span>`;
+    }
+  }
 }
 
 function closeUserVisitModal() {
@@ -4218,45 +4414,113 @@ function copyDocLink() {
 
 <!-- USER VISIT MODAL -->
 <div class="modal-overlay" id="userVisitModal" onclick="if(event.target===this)closeUserVisitModal()">
-  <div class="modal" style="width:480px;" onclick="event.stopPropagation()">
-    <div style="position:relative;padding:20px 24px 16px;border-bottom:1px solid var(--border);">
-      <button onclick="closeUserVisitModal()" style="position:absolute;top:12px;right:16px;border:none;background:none;cursor:pointer;color:var(--muted-foreground);font-size:16px;padding:4px;">✕</button>
+  <div class="modal" style="width:500px;max-height:90vh;overflow-y:auto;" onclick="event.stopPropagation()">
+
+    <!-- Header -->
+    <div style="position:sticky;top:0;background:var(--background);z-index:1;padding:18px 24px 14px;border-bottom:1px solid var(--border);">
+      <button onclick="closeUserVisitModal()" style="position:absolute;top:14px;right:16px;width:30px;height:30px;border:none;background:none;cursor:pointer;color:var(--muted-foreground);font-size:16px;display:flex;align-items:center;justify-content:center;border-radius:50%;" onmouseover="this.style.background='var(--accent)'" onmouseout="this.style.background='none'">✕</button>
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-        <span style="display:inline-flex;padding:2px 8px;border-radius:9999px;font-size:11px;font-weight:600;background:var(--muted);color:var(--muted-foreground);" id="uvm-status">Scheduled</span>
+        <span id="uvm-status-badge" style="display:inline-flex;padding:2px 10px;border-radius:9999px;font-size:11px;font-weight:600;background:#dbeafe;color:#1e40af;border:1px solid #bfdbfe;">Scheduled</span>
         <span style="font-size:13px;color:var(--muted-foreground);" id="uvm-time"></span>
       </div>
-      <div style="font-size:16px;font-weight:600;letter-spacing:-0.01em;" id="uvm-title"></div>
-      <div style="font-size:13px;color:var(--muted-foreground);margin-top:3px;" id="uvm-client"></div>
+      <div style="font-size:18px;font-weight:700;letter-spacing:-0.2px;padding-right:32px;" id="uvm-title"></div>
     </div>
 
-    <div style="padding:20px 24px;">
+    <div style="padding:20px 24px;display:flex;flex-direction:column;gap:20px;">
 
-      <!-- Assigned worker -->
-      <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.6px;color:var(--muted-foreground);margin-bottom:10px;">Assigned worker</div>
-
-      <!-- Has worker -->
-      <div id="uvm-assigned-row" style="display:none;align-items:center;gap:12px;padding:10px 14px;background:var(--muted);border-radius:var(--radius);">
-        <div id="uvm-worker-avatar" style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:white;flex-shrink:0;"></div>
-        <div>
-          <div style="font-size:13.5px;font-weight:500;" id="uvm-worker-name"></div>
-          <div style="font-size:12px;color:var(--muted-foreground);" id="uvm-worker-email"></div>
+      <!-- Client info -->
+      <div>
+        <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.6px;color:var(--muted-foreground);margin-bottom:10px;">Client</div>
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--muted);border-radius:var(--radius);">
+          <div id="uvm-client-avatar" style="width:38px;height:38px;border-radius:50%;background:#1a3a5c;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:white;flex-shrink:0;"></div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:14px;font-weight:600;" id="uvm-client-name"></div>
+            <div style="font-size:12px;color:var(--muted-foreground);margin-top:1px;" id="uvm-client-addr"></div>
+            <div style="font-size:12px;color:var(--muted-foreground);margin-top:1px;" id="uvm-client-phone"></div>
+          </div>
         </div>
       </div>
 
-      <!-- Unassigned -->
-      <div id="uvm-unassigned-row" style="display:none;">
-        <select id="uvm-worker-select" style="width:100%;height:40px;border:1.5px solid var(--border);border-radius:var(--radius);padding:0 12px;font-family:'Inter',sans-serif;font-size:13px;outline:none;background:var(--background);color:var(--foreground);cursor:pointer;" onfocus="this.style.borderColor='var(--primary)'" onblur="this.style.borderColor='var(--border)'">
-          <option value="">Assign a worker…</option>
-        </select>
-        <div style="font-size:12px;color:var(--muted-foreground);margin-top:6px;" id="uvm-no-workers-hint"></div>
+      <!-- Job description -->
+      <div>
+        <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.6px;color:var(--muted-foreground);margin-bottom:8px;">What needs to be done</div>
+        <div id="uvm-job-desc" style="font-size:14px;color:var(--foreground);line-height:1.5;padding:10px 14px;border:1px solid var(--border);border-radius:var(--radius);background:var(--background);"></div>
+      </div>
+
+      <!-- Worker -->
+      <div>
+        <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.6px;color:var(--muted-foreground);margin-bottom:10px;">Assigned worker</div>
+
+        <!-- Assigned state -->
+        <div id="uvm-assigned-row" style="display:none;align-items:center;gap:12px;padding:10px 14px;background:var(--muted);border-radius:var(--radius);">
+          <div id="uvm-worker-avatar" style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:white;flex-shrink:0;"></div>
+          <div style="flex:1;">
+            <div style="display:flex;align-items:center;gap:6px;">
+              <span style="font-size:13.5px;font-weight:500;" id="uvm-worker-name"></span>
+              <span id="uvm-worker-pending" style="display:none;font-size:11px;color:var(--muted-foreground);background:var(--background);border:1px solid var(--border);border-radius:9999px;padding:1px 7px;">pending</span>
+            </div>
+            <div style="font-size:12px;color:var(--muted-foreground);margin-top:1px;" id="uvm-worker-email"></div>
+          </div>
+          <button onclick="uvmUnassignWorker()" style="font-size:11px;color:var(--muted-foreground);background:none;border:none;cursor:pointer;padding:4px;text-decoration:underline;text-underline-offset:2px;" onmouseover="this.style.color='var(--foreground)'" onmouseout="this.style.color='var(--muted-foreground)'">Remove</button>
+        </div>
+
+        <!-- Unassigned: two action buttons -->
+        <div id="uvm-unassigned-row" style="display:none;display:flex;flex-direction:column;gap:8px;">
+          <button onclick="uvmAssignToMe()" style="display:flex;align-items:center;gap:10px;padding:10px 14px;border:1.5px solid var(--border);border-radius:var(--radius);background:var(--background);cursor:pointer;font-family:'Inter',sans-serif;text-align:left;transition:all 0.15s;" onmouseover="this.style.background='var(--accent)';this.style.borderColor='var(--primary)'" onmouseout="this.style.background='var(--background)';this.style.borderColor='var(--border)'">
+            <div style="width:32px;height:32px;border-radius:50%;background:#e4e4e7;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#71717a;flex-shrink:0;">Me</div>
+            <div>
+              <div style="font-size:13px;font-weight:500;color:var(--foreground);">Assign to me</div>
+              <div style="font-size:12px;color:var(--muted-foreground);">You'll handle this visit</div>
+            </div>
+          </button>
+          <button onclick="uvmShowInviteForm()" style="display:flex;align-items:center;gap:10px;padding:10px 14px;border:1.5px solid var(--border);border-radius:var(--radius);background:var(--background);cursor:pointer;font-family:'Inter',sans-serif;text-align:left;transition:all 0.15s;" onmouseover="this.style.background='var(--accent)';this.style.borderColor='var(--primary)'" onmouseout="this.style.background='var(--background)';this.style.borderColor='var(--border)'">
+            <div style="width:32px;height:32px;border-radius:50%;background:var(--muted);border:1.5px dashed var(--border);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--muted-foreground)" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            </div>
+            <div>
+              <div style="font-size:13px;font-weight:500;color:var(--foreground);">Invite a worker</div>
+              <div style="font-size:12px;color:var(--muted-foreground);">Send invite by email or name</div>
+            </div>
+          </button>
+          <!-- Inline invite form (hidden by default) -->
+          <div id="uvm-invite-form" style="display:none;border:1.5px solid var(--primary);border-radius:var(--radius);padding:12px;background:#fafbff;">
+            <div style="font-size:12px;font-weight:600;margin-bottom:8px;color:var(--foreground);">Invite worker</div>
+            <input id="uvm-inv-email" type="email" placeholder="Email address *" style="width:100%;height:34px;border:1.5px solid var(--border);border-radius:var(--radius);padding:0 10px;font-family:'Inter',sans-serif;font-size:13px;outline:none;box-sizing:border-box;margin-bottom:8px;" onfocus="this.style.borderColor='var(--primary)'" onblur="this.style.borderColor='var(--border)'" oninput="uvmRefreshInviteBtn()" onkeydown="if(event.key==='Enter')uvmSendInvite()">
+            <div style="display:flex;gap:8px;">
+              <button id="uvm-inv-send" onclick="uvmSendInvite()" disabled style="flex:1;height:32px;background:var(--muted);color:var(--muted-foreground);border:none;border-radius:var(--radius);font-family:'Inter',sans-serif;font-size:12.5px;font-weight:500;cursor:not-allowed;transition:all 0.15s;">Send invite</button>
+              <button onclick="uvmHideInviteForm()" style="height:32px;padding:0 12px;background:none;border:1px solid var(--border);border-radius:var(--radius);font-family:'Inter',sans-serif;font-size:12.5px;color:var(--muted-foreground);cursor:pointer;">Cancel</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Reschedule (collapsible) -->
+      <div id="uvm-reschedule-wrap">
+        <button onclick="uvmToggleReschedule()" style="display:flex;align-items:center;gap:6px;background:none;border:1.5px solid var(--border);border-radius:var(--radius);padding:8px 14px;font-family:'Inter',sans-serif;font-size:13px;color:var(--muted-foreground);cursor:pointer;transition:all 0.15s;" onmouseover="this.style.background='var(--accent)';this.style.color='var(--foreground)'" onmouseout="this.style.background='none';this.style.color='var(--muted-foreground)'">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          Reschedule visit
+        </button>
+        <div id="uvm-reschedule-body" style="display:none;margin-top:12px;padding:14px;border:1.5px solid var(--border);border-radius:var(--radius);">
+          <div style="font-size:12px;font-weight:500;color:var(--muted-foreground);margin-bottom:8px;">New date</div>
+          <div id="uvm-rs-dates" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;"></div>
+          <div id="uvm-rs-times-wrap" style="display:none;">
+            <div style="font-size:12px;font-weight:500;color:var(--muted-foreground);margin-bottom:8px;">New time</div>
+            <div id="uvm-rs-times" style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:10px;"></div>
+          </div>
+          <button id="uvm-rs-save" onclick="uvmSaveReschedule()" disabled style="height:36px;padding:0 20px;background:var(--muted);color:var(--muted-foreground);border:none;border-radius:var(--radius);font-family:'Inter',sans-serif;font-size:13px;font-weight:500;cursor:not-allowed;transition:all 0.15s;">Save new time</button>
+        </div>
       </div>
 
     </div>
 
-    <div style="display:flex;align-items:center;gap:8px;padding:16px 24px;border-top:1px solid var(--border);">
-      <button onclick="uvm_goToJob()" style="display:inline-flex;align-items:center;gap:4px;background:var(--background);color:var(--foreground);border:1.5px solid var(--border);border-radius:var(--radius);padding:0 14px;height:36px;font-family:'Inter',sans-serif;font-size:13px;cursor:pointer;" onmouseover="this.style.background='var(--accent)'" onmouseout="this.style.background='var(--background)'">View job →</button>
-      <button onclick="closeUserVisitModal()" style="margin-left:auto;display:inline-flex;align-items:center;background:var(--primary);color:var(--primary-foreground);border:none;border-radius:var(--radius);padding:0 16px;height:36px;font-family:'Inter',sans-serif;font-size:13px;font-weight:500;cursor:pointer;" onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">Done</button>
+    <!-- Footer -->
+    <div style="position:sticky;bottom:0;background:var(--background);display:flex;gap:10px;padding:14px 24px;border-top:1px solid var(--border);">
+      <button id="uvm-complete-btn" onclick="uvmMarkComplete()" style="flex:1;height:40px;background:var(--primary);color:var(--primary-foreground);border:none;border-radius:var(--radius);font-family:'Inter',sans-serif;font-size:13.5px;font-weight:600;cursor:pointer;transition:opacity 0.15s;" onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
+        Mark as complete ✓
+      </button>
+      <button onclick="uvm_goToJob()" style="height:40px;padding:0 16px;background:var(--background);color:var(--foreground);border:1.5px solid var(--border);border-radius:var(--radius);font-family:'Inter',sans-serif;font-size:13px;cursor:pointer;white-space:nowrap;" onmouseover="this.style.background='var(--accent)'" onmouseout="this.style.background='var(--background)'">Open full job →</button>
     </div>
+
   </div>
 </div>
 
@@ -4547,7 +4811,7 @@ function cjmFilterClients(q) {
 function cjmSelectClient(id) {
   cjm.client = wizClients.find(c => c.id === id);
   cjmRenderClients(wizGetClients());
-  cjmRefreshS1Btn();
+  cjmRefreshSaveBtn();
 }
 
 function cjmToggleNewClientForm() {
@@ -4569,10 +4833,10 @@ function cjmToggleNewClientForm() {
 function cjmHideNewClientForm() {
   document.getElementById('cjm-new-client-form').style.display = 'none';
   document.getElementById('cjm-new-client-btn').style.display = 'flex';
-  cjmRefreshS1Btn();
+  cjmRefreshSaveBtn();
 }
 
-function cjmNewClientValidate() { cjmRefreshS1Btn(); }
+function cjmNewClientValidate() { cjmRefreshSaveBtn(); }
 
 function cjmSaveNewClient() {
   const fn    = document.getElementById('cjm-nc-fname').value.trim();
@@ -4994,18 +5258,35 @@ function injectJobToday(name, desc, dateLabel, dateShort, time) {
     }
   }
 
+  // Register in userVisits so the popup can find it
+  userVisits.push({
+    id: rowId,
+    clientName: name,
+    jobTitle: desc,
+    time: time,
+    isToday: isToday,
+    isTomorrow: isTomorrow,
+    isFuture: !isToday && !isTomorrow,
+    visitDate: (function() {
+      var today = new Date(); today.setHours(0,0,0,0);
+      var d = new Date(today);
+      if (isTomorrow) d.setDate(d.getDate() + 1);
+      return d;
+    })(),
+    worker: null,
+    status: 'Scheduled'
+  });
+
   // Build visit row
   var row = document.createElement('div');
   row.className = 'visit-row';
   row.id = rowId;
+  row.dataset.visitId = rowId;
   row.style.animation = 'fadeIn 0.35s ease';
   row.innerHTML =
     '<span class="visit-time">' + time + '</span>' +
     '<div class="visit-dot" style="background:#d4d4d8;"></div>' +
-    '<div>' +
-      '<div class="visit-name">' + name + '</div>' +
-      '<div style="font-size:12px;color:var(--muted-foreground);margin-top:1px;">' + desc + '</div>' +
-    '</div>' +
+    '<div class="visit-name">' + desc + '<span style="display:block;font-size:11.5px;font-weight:400;color:var(--muted-foreground);margin-top:1px;">' + name + '</span></div>' +
     '<div class="visit-worker" style="gap:7px;cursor:pointer;" onclick="event.stopPropagation();openAssignPopup(\'' + rowId + '\')" title="Assign a worker">' +
       '<div style="width:22px;height:22px;border-radius:50%;background:var(--muted);border:1.5px dashed var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:center;">' +
         '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--muted-foreground)" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>' +
@@ -5013,6 +5294,10 @@ function injectJobToday(name, desc, dateLabel, dateShort, time) {
       '<span style="font-size:12px;color:var(--muted-foreground);text-decoration:underline;text-underline-offset:2px;">No worker</span>' +
     '</div>' +
     '<div class="visit-type"><span style="font-size:11px;font-weight:500;padding:3px 8px;border-radius:4px;background:#dbeafe;color:#1e40af;border:1px solid #bfdbfe;">Scheduled</span></div>';
+
+  row.onclick = function(e) {
+    if (!e.target.closest('.visit-worker[onclick]')) openUserVisitModal(rowId);
+  };
 
   targetGroup.appendChild(row);
   sortVisitsContent();
