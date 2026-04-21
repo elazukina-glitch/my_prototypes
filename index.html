@@ -2,14 +2,15 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AI Estimate — Interactive Prototype</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#F5F0E8">
+<title>AI Estimate</title>
 <style>
   :root {
-    --bg: #E8E2D5;
     --screen-bg: #F5F0E8;
     --card-bg: #FFFFFF;
-    --card-soft: #F5F0E8;
     --text: #1A1A1A;
     --text-muted: #8B8680;
     --text-subtle: #B5B0A8;
@@ -18,94 +19,68 @@
     --accent: #1A1A1A;
     --accent-soft: #EBE4D3;
     --warning: #F4E3A8;
-    --warning-text: #8B6B1F;
     --warning-soft: #FBF3D9;
     --success: #D6E5CC;
     --success-text: #4A6B3A;
     --danger: #D97575;
-    --shadow: 0 2px 12px rgba(0,0,0,0.06);
+
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
   }
 
-  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-font-smoothing: antialiased; }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-font-smoothing: antialiased; -webkit-tap-highlight-color: transparent; }
+
+  html, body {
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
 
   body {
     font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", sans-serif;
-    background: var(--bg);
+    background: var(--screen-bg);
     color: var(--text);
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 40px 20px;
+    position: fixed;
+    inset: 0;
+    touch-action: manipulation;
   }
 
-  .header {
-    max-width: 500px;
-    text-align: center;
-    margin-bottom: 30px;
-  }
-  .header h1 {
-    font-size: 24px;
-    font-weight: 700;
-    margin-bottom: 6px;
-  }
-  .header p {
-    font-size: 14px;
-    color: var(--text-muted);
-    line-height: 1.5;
-  }
-
-  .session-toggle {
-    display: inline-flex;
+  .session-switch {
+    position: fixed;
+    top: calc(var(--safe-top) + 8px);
+    right: 12px;
+    z-index: 100;
     background: var(--card-bg);
     border-radius: 999px;
-    padding: 4px;
-    margin-bottom: 24px;
-    box-shadow: var(--shadow);
+    padding: 3px;
+    display: flex;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    font-size: 10px;
   }
-  .session-toggle button {
+  .session-switch button {
     border: none;
     background: transparent;
-    padding: 8px 16px;
+    padding: 5px 10px;
     border-radius: 999px;
-    font-size: 13px;
     font-weight: 500;
     cursor: pointer;
     color: var(--text-muted);
     font-family: inherit;
+    font-size: 10px;
   }
-  .session-toggle button.active {
+  .session-switch button.active {
     background: var(--accent);
     color: white;
   }
 
-  .phone {
-    width: 390px;
-    height: 800px;
-    background: var(--screen-bg);
-    border-radius: 48px;
-    border: 10px solid #1a1a1a;
-    overflow: hidden;
-    position: relative;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+  .app {
+    position: fixed;
+    inset: 0;
     display: flex;
     flex-direction: column;
-  }
-
-  .status-bar {
-    height: 44px;
-    padding: 16px 28px 0;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: 15px;
-    font-weight: 600;
-    flex-shrink: 0;
-  }
-  .status-bar .icons {
-    display: flex;
-    gap: 4px;
-    align-items: center;
+    background: var(--screen-bg);
+    padding-top: var(--safe-top);
+    padding-bottom: var(--safe-bottom);
   }
 
   .screens {
@@ -120,7 +95,7 @@
     flex-direction: column;
     opacity: 0;
     pointer-events: none;
-    transition: opacity 0.25s ease;
+    transition: opacity 0.2s ease;
     overflow: hidden;
   }
   .screen.active {
@@ -133,7 +108,8 @@
     padding: 12px 20px 20px;
     overflow-y: auto;
     overflow-x: hidden;
-    padding-bottom: 180px;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 200px;
   }
   .screen-content::-webkit-scrollbar { display: none; }
 
@@ -142,6 +118,7 @@
     justify-content: space-between;
     align-items: center;
     margin-bottom: 20px;
+    padding-top: 8px;
   }
   .icon-btn {
     width: 36px;
@@ -172,12 +149,6 @@
     cursor: pointer;
     font-family: inherit;
     color: var(--text);
-  }
-  .pill-btn:hover { background: #EDE7DA; }
-  .step-indicator {
-    font-size: 13px;
-    color: var(--text-muted);
-    font-weight: 500;
   }
 
   .page-title {
@@ -210,7 +181,6 @@
   }
 
   .list-item {
-    background: transparent;
     padding: 14px 0;
     border-bottom: 1px solid var(--border);
     display: flex;
@@ -227,9 +197,7 @@
     font-size: 13px;
     color: var(--text-muted);
   }
-  .list-item-right {
-    text-align: right;
-  }
+  .list-item-right { text-align: right; }
   .list-item-right .amount {
     font-size: 16px;
     font-weight: 600;
@@ -255,13 +223,17 @@
 
   .bottom-cta {
     position: absolute;
-    bottom: 100px;
+    bottom: 84px;
     left: 20px;
     right: 20px;
     display: flex;
     flex-direction: column;
     gap: 10px;
     z-index: 2;
+    padding-bottom: calc(var(--safe-bottom) / 2);
+  }
+  .bottom-cta.no-tabbar {
+    bottom: calc(20px + var(--safe-bottom));
   }
   .btn {
     width: 100%;
@@ -274,15 +246,11 @@
     font-family: inherit;
     transition: opacity 0.15s;
   }
-  .btn:hover { opacity: 0.92; }
+  .btn:active { opacity: 0.8; }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
   .btn-primary {
     background: var(--accent);
     color: white;
-  }
-  .btn-primary:disabled {
-    background: #D5D0C8;
-    color: #9A958E;
-    cursor: not-allowed;
   }
   .btn-ai {
     background: var(--accent);
@@ -297,19 +265,29 @@
     color: var(--text);
     border: 1px solid var(--border);
   }
+  .btn-regenerate {
+    background: var(--card-bg);
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border: 1px solid var(--border);
+  }
 
   .tab-bar {
     position: absolute;
     bottom: 0;
     left: 0;
     right: 0;
-    height: 84px;
+    height: calc(64px + var(--safe-bottom));
     background: var(--screen-bg);
     border-top: 1px solid var(--border);
     display: flex;
     justify-content: space-around;
-    align-items: center;
-    padding-bottom: 22px;
+    align-items: flex-start;
+    padding-top: 8px;
+    padding-bottom: var(--safe-bottom);
   }
   .tab {
     display: flex;
@@ -319,6 +297,7 @@
     font-size: 11px;
     color: var(--text-muted);
     cursor: pointer;
+    padding: 4px 8px;
   }
   .tab.active { color: var(--text); font-weight: 600; }
 
@@ -335,11 +314,11 @@
     margin-bottom: 12px;
     font-size: 15px;
   }
-  .field input, .field textarea, .field select {
+  .field input, .field textarea {
     border: none;
     background: transparent;
     width: 100%;
-    font-size: 15px;
+    font-size: 16px;
     font-family: inherit;
     outline: none;
     resize: none;
@@ -348,7 +327,6 @@
   .field input::placeholder, .field textarea::placeholder {
     color: var(--text-subtle);
   }
-  .field textarea { min-height: 50px; }
 
   .close-btn {
     width: 36px;
@@ -364,179 +342,61 @@
     font-family: inherit;
   }
 
-  .section-label {
-    font-size: 12px;
-    font-weight: 500;
-    color: var(--text-muted);
-    margin: 18px 0 8px;
+  /* === AI Input screen === */
+  .ai-input-hero {
+    text-align: center;
+    padding: 10px 0 24px;
   }
-  .section-label.first { margin-top: 0; }
-
-  .search-field {
-    background: var(--card-bg);
-    border-radius: 12px;
-    padding: 12px 16px;
-    margin-bottom: 12px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-size: 15px;
-    color: var(--text-subtle);
-  }
-  .search-field input {
-    border: none;
-    background: transparent;
-    flex: 1;
-    outline: none;
-    font-size: 15px;
-    font-family: inherit;
-    color: var(--text);
-  }
-  .search-field input::placeholder { color: var(--text-subtle); }
-
-  .client-row {
-    background: var(--card-bg);
-    border-radius: 14px;
-    padding: 14px 16px;
-    margin-bottom: 8px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    cursor: pointer;
-    border: 2px solid transparent;
-    transition: border-color 0.15s;
-  }
-  .client-row:hover { border-color: var(--border-strong); }
-  .client-row.selected {
-    background: var(--accent);
-    color: white;
-  }
-  .client-avatar {
-    width: 38px;
-    height: 38px;
-    border-radius: 50%;
-    background: var(--accent-soft);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 600;
-    font-size: 14px;
-    flex-shrink: 0;
-  }
-  .client-row.selected .client-avatar {
-    background: rgba(255,255,255,0.2);
-    color: white;
-  }
-  .client-info { flex: 1; min-width: 0; }
-  .client-name { font-size: 15px; font-weight: 600; }
-  .client-meta { font-size: 12px; opacity: 0.7; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .client-check { font-size: 16px; }
-
-  .new-client-btn {
-    background: var(--card-bg);
-    border: 1.5px dashed var(--border-strong);
-    border-radius: 14px;
-    padding: 14px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-size: 14px;
-    color: var(--text);
-    font-weight: 500;
-    width: 100%;
-    cursor: pointer;
-    font-family: inherit;
-  }
-  .new-client-btn:hover { background: #FAF6ED; }
-
-  .import-btn {
+  .sparkle-badge {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
-    background: var(--card-bg);
-    border: 1px solid var(--border);
+    gap: 6px;
+    background: var(--accent-soft);
+    padding: 6px 14px;
     border-radius: 999px;
-    padding: 10px 16px;
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 500;
-    margin-bottom: 20px;
-    cursor: pointer;
-    font-family: inherit;
+    margin-bottom: 14px;
   }
-
-  .compound-field {
-    background: var(--card-bg);
-    border-radius: 14px;
-    padding: 4px 16px;
-    margin-bottom: 12px;
+  .ai-hero-title {
+    font-size: 28px;
+    font-weight: 700;
+    line-height: 1.15;
+    margin-bottom: 8px;
   }
-  .compound-row {
-    display: flex;
-    align-items: center;
-    padding: 12px 0;
-    border-bottom: 1px solid var(--border);
-    gap: 12px;
-  }
-  .compound-row:last-child { border-bottom: none; }
-  .compound-label {
+  .ai-hero-sub {
     font-size: 14px;
-    font-weight: 600;
-    min-width: 70px;
-  }
-  .compound-input {
-    flex: 1;
-    border: none;
-    background: transparent;
-    font-size: 15px;
-    font-family: inherit;
-    outline: none;
-    color: var(--text);
-  }
-  .compound-input::placeholder { color: var(--text-subtle); }
-
-  .select-field {
-    background: var(--card-bg);
-    border-radius: 12px;
-    padding: 14px 16px;
-    margin-bottom: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    cursor: pointer;
-    font-size: 15px;
-  }
-  .select-field .chevron {
     color: var(--text-muted);
-    font-size: 14px;
+    line-height: 1.4;
+    padding: 0 8px;
   }
-  .select-value { font-weight: 500; }
-  .select-placeholder { color: var(--text-subtle); }
 
-  .desc-field {
+  .big-input-wrap {
     background: var(--card-bg);
-    border-radius: 14px;
-    padding: 14px 16px;
-    margin-bottom: 12px;
+    border-radius: 18px;
+    padding: 16px 18px;
+    margin-bottom: 14px;
     display: flex;
     gap: 10px;
     align-items: flex-start;
   }
-  .desc-field textarea {
+  .big-input {
     flex: 1;
     border: none;
     background: transparent;
     outline: none;
-    font-size: 15px;
+    font-size: 17px;
     font-family: inherit;
-    resize: none;
-    min-height: 44px;
-    color: var(--text);
     line-height: 1.4;
+    resize: none;
+    color: var(--text);
+    min-height: 90px;
+    max-height: 180px;
   }
-  .desc-field textarea::placeholder { color: var(--text-subtle); }
+  .big-input::placeholder { color: var(--text-subtle); }
   .mic-btn {
-    width: 36px;
-    height: 36px;
+    width: 40px;
+    height: 40px;
     border-radius: 50%;
     background: var(--accent-soft);
     border: none;
@@ -545,91 +405,86 @@
     justify-content: center;
     cursor: pointer;
     flex-shrink: 0;
-    font-size: 16px;
     font-family: inherit;
     color: var(--text);
   }
 
-  .photos-empty {
-    background: var(--card-bg);
-    border: 1.5px dashed var(--border-strong);
-    border-radius: 14px;
-    padding: 20px;
+  .examples-label {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+    padding-left: 4px;
+  }
+  .example-chips {
     display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 6px;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  .example-chip {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 8px 14px;
+    font-size: 13px;
+    color: var(--text);
     cursor: pointer;
     font-family: inherit;
-    width: 100%;
   }
-  .photos-empty:hover { background: #FAF6ED; }
-  .photos-empty .camera-icon {
-    width: 40px;
-    height: 40px;
+  .example-chip:active { background: var(--accent-soft); }
+
+  .attach-row {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    padding: 12px 16px;
+    background: var(--card-bg);
+    border-radius: 14px;
+    margin-bottom: 12px;
+    cursor: pointer;
+  }
+  .attach-row .attach-icon {
+    width: 36px;
+    height: 36px;
     border-radius: 50%;
     background: var(--accent-soft);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 18px;
-    margin-bottom: 2px;
+    font-size: 16px;
+    flex-shrink: 0;
   }
-  .photos-empty-title {
+  .attach-row .attach-text {
+    flex: 1;
+  }
+  .attach-row .attach-label {
     font-size: 14px;
-    font-weight: 600;
+    font-weight: 500;
   }
-  .photos-empty-sub {
+  .attach-row .attach-sub {
     font-size: 12px;
     color: var(--text-muted);
+    margin-top: 1px;
   }
-
-  .photo-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 8px;
-    margin-bottom: 12px;
+  .attach-row .chevron {
+    color: var(--text-subtle);
   }
-  .photo-item {
-    aspect-ratio: 1;
-    background: var(--card-bg);
-    border-radius: 10px;
-    position: relative;
-    overflow: hidden;
-  }
-  .photo-item.sample-1 { background: linear-gradient(135deg, #c9d4b8 0%, #a8b890 100%); }
-  .photo-item.sample-2 { background: linear-gradient(135deg, #d4c4a8 0%, #b8a888 100%); }
-  .photo-item.sample-3 { background: linear-gradient(135deg, #b8c4d0 0%, #98a8b8 100%); }
-  .photo-item .remove {
-    position: absolute;
-    top: 4px;
-    right: 4px;
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    background: rgba(0,0,0,0.6);
-    color: white;
+  .attached-photos {
     display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 11px;
-    cursor: pointer;
   }
-  .photo-add-small {
-    aspect-ratio: 1;
-    background: var(--card-bg);
-    border: 1.5px dashed var(--border-strong);
-    border-radius: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 22px;
-    color: var(--text-muted);
-    cursor: pointer;
-    font-family: inherit;
-    font-weight: 300;
+  .attached-photos .mini-photo {
+    width: 30px;
+    height: 30px;
+    border-radius: 6px;
+    border: 2px solid var(--card-bg);
+    margin-left: -8px;
   }
+  .attached-photos .mini-photo:first-child { margin-left: 0; }
+  .mini-photo.s1 { background: linear-gradient(135deg, #c9d4b8, #a8b890); }
+  .mini-photo.s2 { background: linear-gradient(135deg, #d4c4a8, #b8a888); }
+  .mini-photo.s3 { background: linear-gradient(135deg, #b8c4d0, #98a8b8); }
 
+  /* Loading */
   .loading-center {
     display: flex;
     flex-direction: column;
@@ -673,7 +528,7 @@
   .loading-steps {
     width: 100%;
     margin-top: 16px;
-    max-width: 260px;
+    max-width: 270px;
   }
   .loading-step {
     display: flex;
@@ -706,6 +561,7 @@
     border: 2px solid var(--accent);
   }
 
+  /* Review */
   .warning-banner {
     background: var(--warning-soft);
     border: 1px solid var(--warning);
@@ -723,7 +579,6 @@
     flex-shrink: 0;
     margin-top: 1px;
   }
-  .warning-banner strong { font-weight: 600; }
 
   .meta-row {
     display: flex;
@@ -763,7 +618,6 @@
     gap: 10px;
   }
   .item-row:last-child { border-bottom: none; }
-  .item-row:hover { background: #FAF6ED; }
   .item-left { flex: 1; min-width: 0; }
   .item-title {
     font-size: 15px;
@@ -801,7 +655,6 @@
     font-family: inherit;
     margin-bottom: 12px;
   }
-  .add-item-btn:hover { background: #FAF6ED; color: var(--text); }
 
   .summary-card {
     background: var(--card-bg);
@@ -824,6 +677,7 @@
   }
   .summary-muted { color: var(--text-muted); }
 
+  /* Sheet */
   .sheet-overlay {
     position: absolute;
     inset: 0;
@@ -842,11 +696,13 @@
     background: var(--screen-bg);
     border-radius: 24px 24px 0 0;
     padding: 16px 20px 30px;
+    padding-bottom: calc(30px + var(--safe-bottom));
     transform: translateY(100%);
     transition: transform 0.25s ease;
     z-index: 11;
-    max-height: 80%;
+    max-height: 85%;
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
   .sheet.open { transform: translateY(0); }
   .sheet-handle {
@@ -857,12 +713,16 @@
     margin: 0 auto 16px;
   }
   .sheet-header {
+    margin-bottom: 8px;
+  }
+  .sheet-title { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+  .sheet-sub { font-size: 13px; color: var(--text-muted); margin-bottom: 16px; }
+  .sheet-header-row {
     display: flex;
     justify-content: space-between;
     align-items: center;
     margin-bottom: 16px;
   }
-  .sheet-title { font-size: 22px; font-weight: 700; }
 
   .tabs-seg {
     display: flex;
@@ -895,16 +755,6 @@
     cursor: pointer;
   }
 
-  .btn-regenerate {
-    background: var(--card-bg);
-    color: var(--text);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    border: 1px solid var(--border);
-  }
-
   .region-option {
     padding: 14px 16px;
     border-bottom: 1px solid var(--border);
@@ -914,9 +764,56 @@
     justify-content: space-between;
     align-items: center;
   }
-  .region-option:hover { background: #FAF6ED; }
-  .region-option.selected { font-weight: 600; }
+  .region-option:last-child { border-bottom: none; }
+  .region-option:active { background: var(--card-bg); }
 
+  .search-field {
+    background: var(--card-bg);
+    border-radius: 12px;
+    padding: 12px 16px;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 15px;
+  }
+  .search-field input {
+    border: none;
+    background: transparent;
+    flex: 1;
+    outline: none;
+    font-size: 16px;
+    font-family: inherit;
+    color: var(--text);
+  }
+  .search-field input::placeholder { color: var(--text-subtle); }
+
+  /* Photo source picker */
+  .source-option {
+    background: var(--card-bg);
+    border-radius: 14px;
+    padding: 16px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    cursor: pointer;
+  }
+  .source-option .ic {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--accent-soft);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+  .source-option .label { font-weight: 600; font-size: 15px; }
+  .source-option .sub { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+
+  /* Final estimate */
   .estimate-hero {
     background: var(--accent-soft);
     border-radius: 16px;
@@ -1013,60 +910,26 @@
   }
   .update-text { font-size: 14px; font-weight: 500; }
 
-  .home-indicator {
-    position: absolute;
-    bottom: 8px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 130px;
-    height: 4px;
-    background: #1a1a1a;
-    border-radius: 2px;
-    opacity: 0.3;
-  }
-
-  .hint {
-    margin-top: 16px;
-    font-size: 13px;
-    color: var(--text-muted);
+  .empty-state {
     text-align: center;
-    max-width: 390px;
-    line-height: 1.5;
+    padding: 40px 20px;
+    color: var(--text-muted);
   }
-  .hint code {
-    background: var(--card-bg);
-    padding: 2px 6px;
-    border-radius: 4px;
-    font-family: inherit;
-    font-weight: 500;
-    color: var(--text);
-  }
+  .empty-state .icon { font-size: 40px; margin-bottom: 12px; }
+  .empty-state-title { font-size: 16px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+  .empty-state-sub { font-size: 13px; }
 
   .hidden { display: none !important; }
 </style>
 </head>
 <body>
 
-<div class="header">
-  <h1>AI Estimate — Prototype</h1>
-  <p>Tap through the flow. Toggle between first-session and returning-user to see both paths.</p>
+<div class="session-switch">
+  <button id="toggleFirst" class="active" onclick="setSession('first')">First</button>
+  <button id="toggleReturn" onclick="setSession('returning')">Returning</button>
 </div>
 
-<div class="session-toggle">
-  <button id="toggleFirst" class="active" onclick="setSession('first')">First session</button>
-  <button id="toggleReturn" onclick="setSession('returning')">Returning user</button>
-</div>
-
-<div class="phone">
-  <div class="status-bar">
-    <span>9:41</span>
-    <span class="icons">
-      <svg width="18" height="12" viewBox="0 0 18 12" fill="currentColor"><path d="M1 11h2V6H1v5zm4 0h2V3H5v8zm4 0h2V0H9v11zm4 0h2V4h-2v7z"/></svg>
-      <svg width="16" height="12" viewBox="0 0 16 12" fill="currentColor"><path d="M8 3c2.2 0 4.3.9 5.8 2.4l1.4-1.4C13.2 2 10.7 1 8 1S2.8 2 .8 4l1.4 1.4C3.7 3.9 5.8 3 8 3z"/></svg>
-      <svg width="24" height="11" viewBox="0 0 24 11" fill="none"><rect x="0.5" y="0.5" width="21" height="10" rx="2.5" stroke="currentColor"/><rect x="2" y="2" width="18" height="7" rx="1" fill="currentColor"/></svg>
-    </span>
-  </div>
-
+<div class="app">
   <div class="screens">
 
     <!-- SCREEN 1: Estimates list -->
@@ -1087,10 +950,10 @@
           <span class="filter-pill-count" id="listCountPill">8 · $9,340.00</span>
         </div>
 
-        <div id="emptyState" class="hidden" style="text-align:center;padding:40px 20px;color:var(--text-muted);">
-          <div style="font-size:40px;margin-bottom:12px;">📋</div>
-          <div style="font-size:16px;font-weight:600;color:var(--text);margin-bottom:4px;">No estimates yet</div>
-          <div style="font-size:13px;">Create your first one below</div>
+        <div id="emptyState" class="empty-state hidden">
+          <div class="icon">📋</div>
+          <div class="empty-state-title">No estimates yet</div>
+          <div class="empty-state-sub">Create your first one below</div>
         </div>
 
         <div id="estimatesListItems">
@@ -1138,11 +1001,26 @@
       </div>
 
       <div class="bottom-cta">
-        <button class="btn btn-ai" onclick="go('screen-client')">
+        <button class="btn btn-ai" onclick="startCreateWithAI()">
           <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0l1.5 4.5L14 6l-4.5 1.5L8 12 6.5 7.5 2 6l4.5-1.5L8 0zm5 9l.75 2.25L16 12l-2.25.75L13 15l-.75-2.25L10 12l2.25-.75L13 9z"/></svg>
           Create with AI
         </button>
         <button class="btn btn-secondary">+ Create manually</button>
+      </div>
+
+      <!-- Region picker sheet (shown on first "Create with AI" tap) -->
+      <div class="sheet-overlay" id="regionOverlay" onclick="closeRegionSheet()"></div>
+      <div class="sheet" id="regionSheet">
+        <div class="sheet-handle"></div>
+        <div class="sheet-header">
+          <div class="sheet-title">Where are you based?</div>
+          <div class="sheet-sub">We use your state to give accurate pricing. Saved to your account — asked only once.</div>
+        </div>
+        <div class="search-field">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--text-subtle);flex-shrink:0;"><circle cx="6" cy="6" r="4.5"/><path d="M10 10l3 3"/></svg>
+          <input type="text" placeholder="Search states" oninput="filterRegions(this.value)" />
+        </div>
+        <div id="regionList"></div>
       </div>
 
       <div class="tab-bar">
@@ -1152,172 +1030,86 @@
         <div class="tab active"><div>📝</div>Estimates</div>
         <div class="tab"><div>👥</div>Clients</div>
       </div>
-      <div class="home-indicator"></div>
     </div>
 
-    <!-- SCREEN 2A: Client — FIRST SESSION -->
-    <div class="screen" id="screen-client-first">
+    <!-- SCREEN 2: AI input (the one-field screen) -->
+    <div class="screen" id="screen-ai-input">
       <div class="screen-content">
         <div class="top-nav">
           <button class="close-btn" onclick="go('screen-list')">✕</button>
-          <span class="step-indicator">Step 1 of 2</span>
-        </div>
-        <h1 class="page-title">New client</h1>
-        <p class="page-subtitle">Add the customer this estimate is for</p>
-
-        <button class="import-btn">
-          <span>📇</span> Import from contacts
-        </button>
-
-        <div class="field-label">Name</div>
-        <div class="field">
-          <input type="text" id="newClientName" placeholder="e.g. Emily Taylor" />
+          <div style="font-size:13px;color:var(--text-muted);font-weight:500;" id="regionLabel">📍 <span id="regionLabelValue">New York</span></div>
         </div>
 
-        <div class="field-label">Contacts</div>
-        <div class="compound-field">
-          <div class="compound-row">
-            <div class="compound-label">E-mail</div>
-            <input class="compound-input" placeholder="Optional" />
-          </div>
-          <div class="compound-row">
-            <div class="compound-label">Phone</div>
-            <input class="compound-input" placeholder="Optional" />
-          </div>
-          <div class="compound-row">
-            <div class="compound-label">Address</div>
-            <input class="compound-input" placeholder="Optional" />
-          </div>
-        </div>
-      </div>
-
-      <div class="bottom-cta">
-        <button class="btn btn-primary" onclick="go('screen-describe')">Continue</button>
-      </div>
-      <div class="home-indicator"></div>
-    </div>
-
-    <!-- SCREEN 2B: Client — RETURNING -->
-    <div class="screen" id="screen-client-returning">
-      <div class="screen-content">
-        <div class="top-nav">
-          <button class="close-btn" onclick="go('screen-list')">✕</button>
-          <span class="step-indicator">Step 1 of 2</span>
-        </div>
-        <h1 class="page-title">Who is it for?</h1>
-        <div style="height:16px;"></div>
-
-        <div class="search-field">
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6" cy="6" r="4.5"/><path d="M10 10l3 3"/></svg>
-          <input type="text" placeholder="Search clients" />
+        <div class="ai-input-hero">
+          <div class="sparkle-badge">✨ AI estimate</div>
+          <h1 class="ai-hero-title">Tell us about the job</h1>
+          <p class="ai-hero-sub">Include the client and what needs to be done — we'll handle the rest</p>
         </div>
 
-        <button class="new-client-btn" onclick="go('screen-client-first')">
-          <span style="font-size:18px;">+</span>
-          <span>Add new client</span>
-        </button>
-
-        <div class="section-label">Recent</div>
-
-        <div class="client-row selected" onclick="go('screen-describe')">
-          <div class="client-avatar">ET</div>
-          <div class="client-info">
-            <div class="client-name">Emily Taylor</div>
-            <div class="client-meta">123 Ocean View Ave · Brooklyn</div>
-          </div>
-          <div class="client-check">✓</div>
-        </div>
-        <div class="client-row" onclick="go('screen-describe')">
-          <div class="client-avatar">MB</div>
-          <div class="client-info">
-            <div class="client-name">Michael Brown</div>
-            <div class="client-meta">456 Main St · Brooklyn</div>
-          </div>
-        </div>
-        <div class="client-row" onclick="go('screen-describe')">
-          <div class="client-avatar">SC</div>
-          <div class="client-info">
-            <div class="client-name">Sophia Chen</div>
-            <div class="client-meta">789 Park Ave · Queens</div>
-          </div>
-        </div>
-        <div class="client-row" onclick="go('screen-describe')">
-          <div class="client-avatar">JT</div>
-          <div class="client-info">
-            <div class="client-name">James Taylor</div>
-            <div class="client-meta">321 Elm St · Manhattan</div>
-          </div>
-        </div>
-      </div>
-
-      <div class="bottom-cta">
-        <button class="btn btn-primary" onclick="go('screen-describe')">Continue</button>
-      </div>
-      <div class="home-indicator"></div>
-    </div>
-
-    <!-- SCREEN 3: Describe -->
-    <div class="screen" id="screen-describe">
-      <div class="screen-content">
-        <div class="top-nav">
-          <button class="close-btn" onclick="goBackFromDescribe()">‹</button>
-          <span class="step-indicator">Step 2 of 2</span>
-        </div>
-        <h1 class="page-title">Describe the job</h1>
-        <p class="page-subtitle">For <span id="describeClientName">Emily Taylor</span></p>
-
-        <div class="section-label first">Region</div>
-        <div class="select-field" onclick="openRegionSheet()">
-          <span class="select-value" id="regionValue" style="color:var(--text-subtle);">Select state</span>
-          <span class="chevron">›</span>
-        </div>
-
-        <div class="section-label">What needs to be done</div>
-        <div class="desc-field">
-          <textarea id="jobDescription" placeholder="Briefly describe the job. e.g. Kitchen sink leaking, replace faucet."></textarea>
+        <div class="big-input-wrap">
+          <textarea
+            id="aiInputText"
+            class="big-input"
+            placeholder="e.g. Alex Brown, cleaning 2 rooms"
+            oninput="updateGenerateButton()"
+          ></textarea>
           <button class="mic-btn" title="Record voice">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a2 2 0 012 2v4a2 2 0 01-4 0V3a2 2 0 012-2zm4 6a4 4 0 01-8 0H3a5 5 0 004 4.9V14h2v-2.1A5 5 0 0013 7h-1z"/></svg>
           </button>
         </div>
 
-        <div class="section-label">Photos</div>
-        <button class="photos-empty" id="photosEmpty" onclick="addPhotos()">
-          <div class="camera-icon">📷</div>
-          <div class="photos-empty-title">Tap to add photos</div>
-          <div class="photos-empty-sub">Helps AI understand the job better</div>
-        </button>
-        <div class="photo-grid hidden" id="photosGrid">
-          <div class="photo-item sample-1"><div class="remove" onclick="event.stopPropagation();removePhoto(this)">✕</div></div>
-          <div class="photo-item sample-2"><div class="remove" onclick="event.stopPropagation();removePhoto(this)">✕</div></div>
-          <div class="photo-item sample-3"><div class="remove" onclick="event.stopPropagation();removePhoto(this)">✕</div></div>
-          <button class="photo-add-small" onclick="addPhotos()">+</button>
+        <div class="examples-label">Try an example</div>
+        <div class="example-chips">
+          <button class="example-chip" onclick="setExample('Alex Brown, cleaning 2 rooms')">Alex Brown, cleaning 2 rooms</button>
+          <button class="example-chip" onclick="setExample('Maria Lopez, replace kitchen faucet')">Maria Lopez, replace kitchen faucet</button>
+          <button class="example-chip" onclick="setExample('Smith family, HVAC tune-up')">Smith family, HVAC tune-up</button>
+        </div>
+
+        <div class="attach-row" id="attachRow" onclick="openPhotoSheet()">
+          <div class="attach-icon">📷</div>
+          <div class="attach-text">
+            <div class="attach-label" id="attachLabel">Add photos (optional)</div>
+            <div class="attach-sub" id="attachSub">Helps AI get more accurate</div>
+          </div>
+          <div id="attachRight">
+            <div class="chevron">›</div>
+          </div>
         </div>
       </div>
 
-      <div class="bottom-cta">
-        <button class="btn btn-ai" onclick="startGenerating()">
+      <div class="bottom-cta no-tabbar">
+        <button class="btn btn-ai" id="generateBtn" onclick="startGenerating()" disabled>
           <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0l1.5 4.5L14 6l-4.5 1.5L8 12 6.5 7.5 2 6l4.5-1.5L8 0z"/></svg>
           Generate estimate
         </button>
       </div>
-      <div class="home-indicator"></div>
 
-      <div class="sheet-overlay" id="regionOverlay" onclick="closeRegionSheet()"></div>
-      <div class="sheet" id="regionSheet">
+      <!-- Photo source sheet -->
+      <div class="sheet-overlay" id="photoOverlay" onclick="closePhotoSheet()"></div>
+      <div class="sheet" id="photoSheet">
         <div class="sheet-handle"></div>
-        <div class="sheet-header">
-          <div class="sheet-title">Select state</div>
-          <button class="close-btn" onclick="closeRegionSheet()">✕</button>
+        <div class="sheet-header-row">
+          <div class="sheet-title">Add photos</div>
+          <button class="close-btn" onclick="closePhotoSheet()">✕</button>
         </div>
-        <div class="search-field">
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6" cy="6" r="4.5"/><path d="M10 10l3 3"/></svg>
-          <input type="text" placeholder="Search states" />
+        <div class="source-option" onclick="simulateAddPhotos()">
+          <div class="ic">📷</div>
+          <div>
+            <div class="label">Take photo</div>
+            <div class="sub">Use your camera</div>
+          </div>
         </div>
-        <div id="regionList"></div>
+        <div class="source-option" onclick="simulateAddPhotos()">
+          <div class="ic">🖼️</div>
+          <div>
+            <div class="label">Choose from library</div>
+            <div class="sub">Pick from your photos</div>
+          </div>
+        </div>
       </div>
     </div>
 
-    <!-- SCREEN 4: Loading -->
+    <!-- SCREEN 3: Loading -->
     <div class="screen" id="screen-loading">
       <div class="screen-content">
         <div class="loading-center">
@@ -1328,11 +1120,11 @@
           <div class="loading-steps">
             <div class="loading-step" id="ls-1">
               <div class="check">·</div>
-              Analyzing photos
+              Understanding the job
             </div>
             <div class="loading-step" id="ls-2">
               <div class="check">·</div>
-              Identifying work scope
+              Finding the client
             </div>
             <div class="loading-step" id="ls-3">
               <div class="check">·</div>
@@ -1345,17 +1137,16 @@
           </div>
         </div>
       </div>
-      <div class="bottom-cta">
-        <button class="btn btn-secondary" onclick="goBackFromLoading()">Cancel</button>
+      <div class="bottom-cta no-tabbar">
+        <button class="btn btn-secondary" onclick="go('screen-ai-input')">Cancel</button>
       </div>
-      <div class="home-indicator"></div>
     </div>
 
-    <!-- SCREEN 5: Review -->
+    <!-- SCREEN 4: Review -->
     <div class="screen" id="screen-review">
       <div class="screen-content">
         <div class="top-nav">
-          <button class="close-btn" onclick="go('screen-describe')">✕</button>
+          <button class="close-btn" onclick="go('screen-ai-input')">✕</button>
           <div class="top-nav-right">
             <button class="pill-btn">Preview</button>
             <button class="pill-btn" style="background:var(--accent);color:white;" onclick="go('screen-created')">Done</button>
@@ -1382,50 +1173,35 @@
           </div>
         </div>
 
-        <div class="field-label">Client</div>
-        <div class="field">
-          <input type="text" value="Emily Taylor" id="reviewClient" />
-        </div>
-
         <div class="field-label">Items</div>
-        <div class="items-card" id="itemsList">
-          <div class="item-row" onclick="openItemEdit('Diagnostic & leak assessment', '120', 'Inspection of under-cabinet plumbing')">
+        <div class="items-card">
+          <div class="item-row" onclick="openItemEdit('Room cleaning (standard)', '85.00', 'First room · deep clean')">
             <div class="item-left">
-              <div class="item-title">Diagnostic &amp; leak assessment</div>
-              <div class="item-desc">Inspection of under-cabinet plumbing</div>
+              <div class="item-title">Room cleaning (standard)</div>
+              <div class="item-desc">First room · deep clean</div>
             </div>
             <div class="item-right">
-              <div class="item-price">$120</div>
+              <div class="item-price">$85</div>
               <div class="item-chevron">›</div>
             </div>
           </div>
-          <div class="item-row" onclick="openItemEdit('Faucet replacement (labor)', '220', 'Remove old, install new fixture')">
+          <div class="item-row" onclick="openItemEdit('Room cleaning (standard)', '75.00', 'Second room · deep clean')">
             <div class="item-left">
-              <div class="item-title">Faucet replacement (labor)</div>
-              <div class="item-desc">Remove old, install new fixture</div>
+              <div class="item-title">Room cleaning (standard)</div>
+              <div class="item-desc">Second room · deep clean</div>
             </div>
             <div class="item-right">
-              <div class="item-price">$220</div>
+              <div class="item-price">$75</div>
               <div class="item-chevron">›</div>
             </div>
           </div>
-          <div class="item-row" onclick="openItemEdit('Standard kitchen faucet', '180', 'Material · mid-range')">
+          <div class="item-row" onclick="openItemEdit('Supplies & materials', '25.00', 'Cleaning products')">
             <div class="item-left">
-              <div class="item-title">Standard kitchen faucet</div>
-              <div class="item-desc">Material · mid-range</div>
+              <div class="item-title">Supplies &amp; materials</div>
+              <div class="item-desc">Cleaning products</div>
             </div>
             <div class="item-right">
-              <div class="item-price">$180</div>
-              <div class="item-chevron">›</div>
-            </div>
-          </div>
-          <div class="item-row" onclick="openItemEdit('Floor water damage repair', '340', 'Visible from photo')">
-            <div class="item-left">
-              <div class="item-title">Floor water damage repair</div>
-              <div class="item-desc">Visible from photo</div>
-            </div>
-            <div class="item-right">
-              <div class="item-price">$340</div>
+              <div class="item-price">$25</div>
               <div class="item-chevron">›</div>
             </div>
           </div>
@@ -1435,25 +1211,24 @@
 
         <div class="field-label">Summary</div>
         <div class="summary-card">
-          <div class="summary-row"><span class="summary-muted">Subtotal</span><span>$860.00</span></div>
-          <div class="summary-row"><span class="summary-muted">Tax (8%)</span><span>$68.80</span></div>
-          <div class="summary-row total"><span>Total</span><span>$928.80</span></div>
+          <div class="summary-row"><span class="summary-muted">Subtotal</span><span>$185.00</span></div>
+          <div class="summary-row"><span class="summary-muted">Tax (8%)</span><span>$14.80</span></div>
+          <div class="summary-row total"><span>Total</span><span>$199.80</span></div>
         </div>
       </div>
 
-      <div class="bottom-cta">
+      <div class="bottom-cta no-tabbar">
         <button class="btn btn-primary" onclick="go('screen-created')">Create estimate</button>
         <button class="btn btn-regenerate" onclick="startGenerating()">
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 2v3h-3M2 12V9h3"/><path d="M11 5.5A4.5 4.5 0 003 7M3 8.5A4.5 4.5 0 0011 7"/></svg>
           Regenerate
         </button>
       </div>
-      <div class="home-indicator"></div>
 
       <div class="sheet-overlay" id="itemOverlay" onclick="closeItemEdit()"></div>
       <div class="sheet" id="itemSheet">
         <div class="sheet-handle"></div>
-        <div class="sheet-header">
+        <div class="sheet-header-row">
           <div class="sheet-title">Edit item</div>
           <button class="pill-btn" onclick="closeItemEdit()">Done</button>
         </div>
@@ -1463,15 +1238,15 @@
           <div class="tabs-seg-item">Other</div>
         </div>
         <div class="field">
-          <input type="text" id="editItemName" value="Faucet replacement (labor)" />
+          <input type="text" id="editItemName" value="Room cleaning (standard)" />
         </div>
         <div class="field">
-          <textarea id="editItemDesc" placeholder="Details (optional)">Remove old, install new fixture</textarea>
+          <textarea id="editItemDesc" placeholder="Details (optional)">First room · deep clean</textarea>
         </div>
         <div style="display:flex;gap:12px;margin-bottom:16px;">
           <div style="flex:1;">
             <div class="field-label">Price</div>
-            <div class="field"><input type="text" id="editItemPrice" value="$220.00" /></div>
+            <div class="field"><input type="text" id="editItemPrice" value="$85.00" /></div>
           </div>
           <div style="flex:1;">
             <div class="field-label">Type</div>
@@ -1482,7 +1257,7 @@
       </div>
     </div>
 
-    <!-- SCREEN 6: Created -->
+    <!-- SCREEN 5: Created -->
     <div class="screen" id="screen-created">
       <div class="screen-content">
         <div class="top-nav">
@@ -1500,8 +1275,8 @@
             <div></div><div></div><div></div><div></div>
           </div>
           <span class="status-pill ai">✨ Created with AI</span>
-          <div class="estimate-amount">$928.80</div>
-          <div class="estimate-client">Emily Taylor</div>
+          <div class="estimate-amount">$199.80</div>
+          <div class="estimate-client">Alex Brown</div>
           <button class="estimate-send-btn">Send Estimate</button>
           <div class="estimate-actions">
             <div class="estimate-action"><span class="icon">✉</span><span>Send</span></div>
@@ -1524,28 +1299,20 @@
           <div class="update-dot muted"></div>
           <div>
             <div class="update-time">Today at 2:14 PM</div>
-            <div class="update-text">Created with AI from 3 photos</div>
+            <div class="update-text">Created with AI</div>
           </div>
         </div>
       </div>
-      <div class="home-indicator"></div>
     </div>
 
   </div>
 </div>
 
-<div class="hint">
-  Tap any button to progress. Tap <code>Regenerate</code> on review to see the loading again. Tap an item to edit it.<br>
-  Switch between <strong>First session</strong> and <strong>Returning user</strong> above to see both client-select paths.
-</div>
-
 <script>
   let sessionType = 'first';
+  let userRegion = null; // null = not set, set from settings for returning user
 
   function go(screenId) {
-    if (screenId === 'screen-client') {
-      screenId = sessionType === 'first' ? 'screen-client-first' : 'screen-client-returning';
-    }
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     const target = document.getElementById(screenId);
     if (target) {
@@ -1567,20 +1334,126 @@
       emptyState.classList.remove('hidden');
       itemsList.classList.add('hidden');
       countPill.textContent = '0';
+      userRegion = null; // not set yet
     } else {
       emptyState.classList.add('hidden');
       itemsList.classList.remove('hidden');
       countPill.textContent = '8 · $9,340.00';
+      userRegion = 'New York'; // pre-set from account settings
     }
+    updateRegionLabel();
+    // Reset AI input state
+    document.getElementById('aiInputText').value = '';
+    resetAttachedPhotos();
+    updateGenerateButton();
     go('screen-list');
   }
 
-  function goBackFromDescribe() {
-    go(sessionType === 'first' ? 'screen-client-first' : 'screen-client-returning');
+  function updateRegionLabel() {
+    const label = document.getElementById('regionLabelValue');
+    if (label) label.textContent = userRegion || '';
+    const labelWrap = document.getElementById('regionLabel');
+    if (labelWrap) labelWrap.style.display = userRegion ? 'block' : 'none';
   }
 
-  function goBackFromLoading() {
-    go('screen-describe');
+  function startCreateWithAI() {
+    if (!userRegion) {
+      openRegionSheet();
+    } else {
+      go('screen-ai-input');
+    }
+  }
+
+  // Region sheet
+  const US_STATES = [
+    'Alabama','Alaska','Arizona','Arkansas','California','Colorado','Connecticut',
+    'Delaware','Florida','Georgia','Hawaii','Idaho','Illinois','Indiana','Iowa',
+    'Kansas','Kentucky','Louisiana','Maine','Maryland','Massachusetts','Michigan',
+    'Minnesota','Mississippi','Missouri','Montana','Nebraska','Nevada','New Hampshire',
+    'New Jersey','New Mexico','New York','North Carolina','North Dakota','Ohio',
+    'Oklahoma','Oregon','Pennsylvania','Rhode Island','South Carolina','South Dakota',
+    'Tennessee','Texas','Utah','Vermont','Virginia','Washington','West Virginia',
+    'Wisconsin','Wyoming'
+  ];
+  function renderRegionList(filter) {
+    const list = document.getElementById('regionList');
+    const q = (filter || '').toLowerCase();
+    const filtered = US_STATES.filter(s => s.toLowerCase().includes(q));
+    list.innerHTML = filtered.map(s =>
+      `<div class="region-option" onclick="selectRegion('${s}')">${s}<span style="color:var(--text-subtle);">›</span></div>`
+    ).join('');
+  }
+  function filterRegions(q) { renderRegionList(q); }
+  function openRegionSheet() {
+    renderRegionList('');
+    document.getElementById('regionOverlay').classList.add('open');
+    document.getElementById('regionSheet').classList.add('open');
+  }
+  function closeRegionSheet() {
+    document.getElementById('regionOverlay').classList.remove('open');
+    document.getElementById('regionSheet').classList.remove('open');
+  }
+  function selectRegion(state) {
+    userRegion = state;
+    updateRegionLabel();
+    closeRegionSheet();
+    // After selecting, proceed to AI input
+    setTimeout(() => go('screen-ai-input'), 200);
+  }
+
+  // AI input
+  function setExample(text) {
+    const el = document.getElementById('aiInputText');
+    el.value = text;
+    el.focus();
+    updateGenerateButton();
+  }
+  function updateGenerateButton() {
+    const text = document.getElementById('aiInputText').value.trim();
+    const btn = document.getElementById('generateBtn');
+    btn.disabled = text.length < 3;
+  }
+
+  // Photo sheet + attach row
+  let attachedPhotos = 0;
+  function openPhotoSheet() {
+    document.getElementById('photoOverlay').classList.add('open');
+    document.getElementById('photoSheet').classList.add('open');
+  }
+  function closePhotoSheet() {
+    document.getElementById('photoOverlay').classList.remove('open');
+    document.getElementById('photoSheet').classList.remove('open');
+  }
+  function simulateAddPhotos() {
+    attachedPhotos = 3;
+    updateAttachRow();
+    closePhotoSheet();
+  }
+  function resetAttachedPhotos() {
+    attachedPhotos = 0;
+    updateAttachRow();
+  }
+  function updateAttachRow() {
+    const row = document.getElementById('attachRow');
+    const label = document.getElementById('attachLabel');
+    const sub = document.getElementById('attachSub');
+    const right = document.getElementById('attachRight');
+    if (attachedPhotos > 0) {
+      row.classList.add('has-photos');
+      label.textContent = attachedPhotos + ' photos attached';
+      sub.textContent = 'Tap to add more';
+      right.innerHTML = `
+        <div class="attached-photos">
+          <div class="mini-photo s1"></div>
+          <div class="mini-photo s2"></div>
+          <div class="mini-photo s3"></div>
+        </div>`;
+    } else {
+      row.classList.remove('has-photos');
+      label.textContent = 'Add photos (optional)';
+      sub.textContent = 'Helps AI get more accurate';
+      right.innerHTML = `<div class="chevron">›</div>`;
+    }
   }
 
   function startGenerating() {
@@ -1606,67 +1479,19 @@
         step++;
         setTimeout(advance, 800);
       } else {
-        setTimeout(() => go('screen-review'), 400);
+        setTimeout(() => {
+          go('screen-review');
+        }, 400);
       }
     };
     advance();
   }
 
-  let hasPhotos = false;
-  function addPhotos() {
-    if (!hasPhotos) {
-      document.getElementById('photosEmpty').classList.add('hidden');
-      document.getElementById('photosGrid').classList.remove('hidden');
-      hasPhotos = true;
-    }
-  }
-  function removePhoto(el) {
-    el.parentElement.remove();
-    const grid = document.getElementById('photosGrid');
-    const items = grid.querySelectorAll('.photo-item');
-    if (items.length === 0) {
-      grid.classList.add('hidden');
-      document.getElementById('photosEmpty').classList.remove('hidden');
-      hasPhotos = false;
-    }
-  }
-
-  const US_STATES = [
-    'Alabama','Alaska','Arizona','Arkansas','California','Colorado','Connecticut',
-    'Delaware','Florida','Georgia','Hawaii','Idaho','Illinois','Indiana','Iowa',
-    'Kansas','Kentucky','Louisiana','Maine','Maryland','Massachusetts','Michigan',
-    'Minnesota','Mississippi','Missouri','Montana','Nebraska','Nevada','New Hampshire',
-    'New Jersey','New Mexico','New York','North Carolina','North Dakota','Ohio',
-    'Oklahoma','Oregon','Pennsylvania','Rhode Island','South Carolina','South Dakota',
-    'Tennessee','Texas','Utah','Vermont','Virginia','Washington','West Virginia',
-    'Wisconsin','Wyoming'
-  ];
-
-  function renderRegionList() {
-    const list = document.getElementById('regionList');
-    list.innerHTML = US_STATES.map(s =>
-      `<div class="region-option" onclick="selectRegion('${s}')">${s}<span style="color:var(--text-subtle);">›</span></div>`
-    ).join('');
-  }
-  function openRegionSheet() {
-    document.getElementById('regionOverlay').classList.add('open');
-    document.getElementById('regionSheet').classList.add('open');
-  }
-  function closeRegionSheet() {
-    document.getElementById('regionOverlay').classList.remove('open');
-    document.getElementById('regionSheet').classList.remove('open');
-  }
-  function selectRegion(state) {
-    const el = document.getElementById('regionValue');
-    el.textContent = state;
-    el.style.color = 'var(--text)';
-    closeRegionSheet();
-  }
-
+  // Item edit
   function openItemEdit(name, price, desc) {
     document.getElementById('editItemName').value = name;
     document.getElementById('editItemDesc').value = desc;
-    document.getElementById('editItemPrice').value = '$' + price + '.00';
+    document.getElementById('editItemPrice').value = '$' + price;
     document.getElementById('itemOverlay').classList.add('open');
     document.getElementById('itemSheet').classList.add('open');
   }
@@ -1675,7 +1500,6 @@
     document.getElementById('itemSheet').classList.remove('open');
   }
 
-  renderRegionList();
   setSession('first');
 </script>
 
