@@ -295,9 +295,7 @@
       flex: 1;
       padding: 1rem 0;
       border-top: 1px solid var(--rule);
-      display: grid;
-      grid-template-columns: auto 1fr;
-      column-gap: 1.5rem;
+      display: flex;
       align-items: baseline;
     }
     .agenda__list li:last-child { border-bottom: 1px solid var(--rule); }
@@ -483,10 +481,6 @@
     .reasons li {
       padding: 0.9rem 0;
       border-bottom: 1px solid var(--rule-faint);
-      display: grid;
-      grid-template-columns: auto 1fr;
-      gap: 0.9rem;
-      align-items: baseline;
       flex: 1;
     }
     .reasons li:last-child { border-bottom: none; }
@@ -738,7 +732,7 @@
       inset: 0;
       width: 100%;
       height: 100%;
-      object-fit: cover;
+      object-fit: contain;
       display: block;
       background: var(--ink);
     }
@@ -1153,6 +1147,48 @@
       color: var(--muted);
     }
 
+    /* Marketing directions list — compact numbered */
+    .mkt-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+    }
+    .mkt-list li {
+      padding: 0.75rem 0;
+      border-bottom: 1px solid var(--rule-faint);
+      display: grid;
+      grid-template-columns: 2.4rem 1fr;
+      column-gap: 1rem;
+      align-items: baseline;
+    }
+    .mkt-list li:first-child { border-top: 1px solid var(--rule-faint); }
+
+    .mkt__num {
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      letter-spacing: 0.12em;
+      color: var(--muted);
+      padding-top: 0.2rem;
+    }
+    .mkt__body { display: flex; flex-direction: column; gap: 0.2rem; min-width: 0; }
+    .mkt__name {
+      font-family: var(--sans);
+      font-weight: 500;
+      font-size: 1.02rem;
+      line-height: 1.2;
+      color: var(--ink);
+      letter-spacing: -0.008em;
+    }
+    .mkt__desc {
+      font-family: var(--serif);
+      font-style: italic;
+      font-size: 0.95rem;
+      line-height: 1.35;
+      color: var(--ink-soft);
+    }
+
     .hero-stat {
       display: flex;
       align-items: baseline;
@@ -1435,28 +1471,24 @@
 
       <ol class="agenda__list">
         <li>
-          <span class="agenda__num">01</span>
           <span class="agenda__text">
             <span class="agenda__name">Проблема</span>
             <span class="agenda__desc">для кого она и почему мобилка</span>
           </span>
         </li>
         <li>
-          <span class="agenda__num">02</span>
           <span class="agenda__text">
             <span class="agenda__name">Валидация</span>
             <span class="agenda__desc">33 интервью + первые цифры с рекламы</span>
           </span>
         </li>
         <li>
-          <span class="agenda__num">03</span>
           <span class="agenda__text">
             <span class="agenda__name">Решение</span>
             <span class="agenda__desc">Smart Completion + живое демо</span>
           </span>
         </li>
         <li>
-          <span class="agenda__num">04</span>
           <span class="agenda__text">
             <span class="agenda__name">Что дальше</span>
             <span class="agenda__desc">маркетинг, модель, продукт</span>
@@ -1547,21 +1579,18 @@
           <p class="col__label">Почему мобилка</p>
           <ol class="reasons">
             <li>
-              <span class="reasons__num">01</span>
               <div class="reasons__text">
                 <h4>Делается на месте</h4>
                 <p>15–30 минут от walk-through до старта работ</p>
               </div>
             </li>
             <li>
-              <span class="reasons__num">02</span>
               <div class="reasons__text">
                 <h4>Фото проще с телефона</h4>
                 <p>Уже workflow: фоткает и отправляет в ChatGPT</p>
               </div>
             </li>
             <li>
-              <span class="reasons__num">03</span>
               <div class="reasons__text">
                 <h4>Пользователи в поле</h4>
                 <p>Планшет на walk-through, не за компом</p>
@@ -1934,43 +1963,57 @@
 
         <!-- Marketing -->
         <div class="next-panel">
-          <p class="next-panel__tag"><b>01</b> marketing</p>
+          <p class="next-panel__tag">marketing</p>
 
-          <ul class="targets">
+          <ul class="mkt-list">
             <li>
-              <span class="target__name">
-                Конверсия лендинга
-                <small>цель: перестроить под месседж «missing items»</small>
+              <span class="mkt__num">01</span>
+              <span class="mkt__body">
+                <span class="mkt__name">Positioning</span>
+                <span class="mkt__desc">AI Estimates как главный дифференциатор от Jobber / HCP / Workiz</span>
               </span>
-              <span class="target__value">5.2% <em>→ 8–10%</em></span>
             </li>
             <li>
-              <span class="target__name">
-                CPL
-                <small>падает с $46 → $30 за сутки</small>
+              <span class="mkt__num">02</span>
+              <span class="mkt__body">
+                <span class="mkt__name">Content + SEO</span>
+                <span class="mkt__desc">Контент-кластер вокруг pricing: «how to price [trade] jobs», «estimate templates»</span>
               </span>
-              <span class="target__value">$30 <em>→ &lt;$20</em></span>
             </li>
             <li>
-              <span class="target__name">
-                CPI install
-                <small>после перехода на install-воронку</small>
+              <span class="mkt__num">03</span>
+              <span class="mkt__body">
+                <span class="mkt__name">Paid acquisition</span>
+                <span class="mkt__desc">Масштабировать staircase-креатив. Тестировать новые</span>
               </span>
-              <span class="target__value"><em>новая метрика</em></span>
             </li>
             <li>
-              <span class="target__name">
-                A/B лендинга
-                <small>новая страница под победивший креатив</small>
+              <span class="mkt__num">04</span>
+              <span class="mkt__body">
+                <span class="mkt__name">Social proof</span>
+                <span class="mkt__desc">Видео-отзывы от первых юзеров: «40 minutes → 30 seconds»</span>
               </span>
-              <span class="target__value"><em>в работе</em></span>
+            </li>
+            <li>
+              <span class="mkt__num">05</span>
+              <span class="mkt__body">
+                <span class="mkt__name">Partnerships</span>
+                <span class="mkt__desc">Trade associations, influencers, contractor YouTubers, подкасты</span>
+              </span>
+            </li>
+            <li>
+              <span class="mkt__num">06</span>
+              <span class="mkt__body">
+                <span class="mkt__name">App Store Optimization</span>
+                <span class="mkt__desc">AI Estimates упоминать в заголовке и описании приложения</span>
+              </span>
             </li>
           </ul>
         </div>
 
         <!-- Model -->
         <div class="next-panel">
-          <p class="next-panel__tag"><b>02</b> model optimization</p>
+          <p class="next-panel__tag">model optimization</p>
 
           <div class="hero-stat">
             <span class="hero-stat__num">−84%</span>
