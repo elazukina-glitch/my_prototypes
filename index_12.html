@@ -1,0 +1,2101 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI-Эстимейты · Tofu FS iOS</title>
+  <meta name="description" content="AI-Estimates for Tofu FS iOS — Smart Completion." />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Serif:ital,wght@0,400;0,500;1,400;1,500&family=IBM+Plex+Mono:wght@400;500&display=swap"
+    rel="stylesheet"
+  />
+
+  <style>
+    :root {
+      --paper:       #E8E1CE;
+      --paper-soft:  #EDE6D4;
+      --paper-deep:  #DDD4B8;
+      --ink:         #161411;
+      --ink-soft:    #2E2A22;
+      --muted:       #5A5347;
+      --muted-soft:  #7A7260;
+      --rule:        #CEC4A8;
+      --rule-soft:   rgba(22, 20, 17, 0.12);
+      --rule-faint:  rgba(22, 20, 17, 0.06);
+      --accent:      #161411;
+      --warn:        #9B6B35;
+      --alert:       #A24A36;
+
+      --sans:  "IBM Plex Sans",  -apple-system, BlinkMacSystemFont, sans-serif;
+      --serif: "IBM Plex Serif", Georgia, serif;
+      --mono:  "IBM Plex Mono",  ui-monospace, monospace;
+
+      --right-reserve: 4.5rem;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+
+    html, body { margin: 0; padding: 0; height: 100%; }
+
+    html {
+      scroll-snap-type: y mandatory;
+      scroll-behavior: smooth;
+      overflow-y: scroll;
+    }
+
+    body {
+      background: var(--paper);
+      color: var(--ink);
+      font-family: var(--sans);
+      font-weight: 400;
+      font-size: 16px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    ::selection { background: var(--ink); color: var(--paper); }
+
+    html::-webkit-scrollbar { width: 0; background: transparent; }
+    html { scrollbar-width: none; }
+
+
+    /* ══════════════════════════════════════════════════════════ */
+    /*                    DECK NAV (right edge)                   */
+    /* ══════════════════════════════════════════════════════════ */
+    .deck-nav {
+      position: fixed;
+      right: 1.25rem;
+      top: 50%;
+      transform: translateY(-50%);
+      display: flex;
+      flex-direction: column;
+      gap: 0.9rem;
+      z-index: 100;
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      letter-spacing: 0.1em;
+    }
+
+    .deck-nav a {
+      color: var(--muted);
+      text-decoration: none;
+      transition: color 0.25s ease;
+      padding: 0.1rem 0.35rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      position: relative;
+    }
+
+    .deck-nav a::before {
+      content: "";
+      width: 14px;
+      height: 1px;
+      background: var(--rule);
+      transition: all 0.3s ease;
+    }
+
+    .deck-nav a:hover { color: var(--ink); }
+
+    .deck-nav a.is-active { color: var(--ink); font-weight: 500; }
+
+    .deck-nav a.is-active::before {
+      background: var(--ink);
+      width: 24px;
+    }
+
+
+    /* ══════════════════════════════════════════════════════════ */
+    /*                          SLIDE                             */
+    /* ══════════════════════════════════════════════════════════ */
+    .slide {
+      height: 100vh;
+      scroll-snap-align: start;
+      scroll-snap-stop: always;
+      display: grid;
+      grid-template-columns: 84px 1fr;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* ─────────── Sidebar (monogram only) ─────────── */
+    .sidebar {
+      border-right: 1px solid var(--rule);
+      padding: 2rem 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .monogram {
+      position: relative;
+      width: 46px;
+      height: 46px;
+      font-family: var(--sans);
+      font-weight: 400;
+      font-size: 1.9rem;
+      line-height: 1;
+      color: var(--accent);
+      letter-spacing: -0.06em;
+    }
+
+    .monogram::before, .monogram::after {
+      content: "";
+      position: absolute;
+      background: var(--accent);
+      z-index: 0;
+    }
+    .monogram::before { left: 50%; top: -4px;  bottom: -4px; width: 1px; }
+    .monogram::after  { top: 50%;  left: -4px; right: -4px;  height: 1px; }
+
+    .monogram__a, .monogram__i {
+      position: absolute;
+      background: var(--paper);
+      padding: 0 4px;
+      z-index: 1;
+    }
+    .monogram__a { top: -2px; left: -2px; }
+    .monogram__i { bottom: -2px; right: -4px; }
+
+    /* ─────────── Topbar (per slide) ─────────── */
+    .topbar {
+      position: absolute;
+      top: 2.25rem;
+      left: 84px;
+      right: var(--right-reserve);
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding: 0 2.5rem;
+      z-index: 10;
+    }
+
+    .topbar__left {
+      font-family: var(--serif);
+      font-style: italic;
+      font-weight: 400;
+      font-size: 1.15rem;
+      color: var(--ink);
+      letter-spacing: 0;
+    }
+
+    .topbar__right {
+      font-family: var(--mono);
+      font-size: 0.82rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .topbar__right b {
+      color: var(--ink);
+      font-weight: 500;
+      margin-right: 0.75rem;
+    }
+
+    /* ─────────── Slide main content ─────────── */
+    .slide__main {
+      padding: 2.25rem var(--right-reserve) 2.5rem 2.5rem;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      position: relative;
+      min-width: 0;
+    }
+
+    .slide__head { margin-top: 5rem; }
+
+    .title {
+      font-family: var(--sans);
+      font-weight: 400;
+      font-size: clamp(2.25rem, 4.4vw, 4rem);
+      line-height: 1.02;
+      letter-spacing: -0.022em;
+      color: var(--ink);
+      margin: 0;
+    }
+
+    .title--md { font-size: clamp(2rem, 3.4vw, 3rem); }
+
+    .title em {
+      font-family: var(--serif);
+      font-style: italic;
+      font-weight: 400;
+      letter-spacing: -0.015em;
+    }
+
+    .slide__foot {
+      margin-top: auto;
+      padding-top: 1.25rem;
+      border-top: 1px solid var(--rule-soft);
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .slide__foot b { color: var(--ink); font-weight: 500; }
+
+
+    /* ══════════════════════════════════════════════════════════ */
+    /*                 SLIDE 01 — INTRO                           */
+    /* ══════════════════════════════════════════════════════════ */
+    #slide-01 { grid-template-columns: 84px minmax(0, 1.05fr) minmax(0, 1fr); }
+
+    .s01__content {
+      padding: 2.25rem 2.5rem 2.5rem;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .s01__inner {
+      margin-top: 5rem;
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      min-height: 0;
+      justify-content: center;
+    }
+
+    .agenda {
+      padding: 2.25rem var(--right-reserve) 2.5rem 2rem;
+      display: flex;
+      flex-direction: column;
+      margin-top: 5rem;
+      overflow: hidden;
+    }
+
+    .agenda__label {
+      font-family: var(--mono);
+      font-weight: 500;
+      font-size: 0.82rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin: 0 0 1.5rem;
+    }
+
+    .agenda__list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      min-height: 0;
+    }
+
+    .agenda__list li {
+      flex: 1;
+      padding: 1rem 0;
+      border-top: 1px solid var(--rule);
+      display: grid;
+      grid-template-columns: auto 1fr;
+      column-gap: 1.5rem;
+      align-items: baseline;
+    }
+    .agenda__list li:last-child { border-bottom: 1px solid var(--rule); }
+
+    .agenda__num {
+      font-family: var(--serif);
+      font-style: italic;
+      font-size: clamp(2.5rem, 4vw, 3.5rem);
+      line-height: 0.9;
+      color: var(--ink);
+      min-width: 2.4ch;
+    }
+
+    .agenda__text { display: flex; flex-direction: column; gap: 0.25rem; }
+
+    .agenda__name {
+      font-family: var(--sans);
+      font-size: clamp(1.1rem, 1.5vw, 1.4rem);
+      line-height: 1.15;
+      color: var(--ink);
+      letter-spacing: -0.01em;
+    }
+
+    .agenda__desc {
+      font-family: var(--serif);
+      font-style: italic;
+      font-size: 1.02rem;
+      line-height: 1.35;
+      color: var(--ink-soft);
+    }
+
+
+    /* ══════════════════════════════════════════════════════════ */
+    /*            SLIDE 02 — PROBLEM & AUDIENCE                   */
+    /* ══════════════════════════════════════════════════════════ */
+    .s02__body {
+      margin-top: 2rem;
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1.05fr 0.85fr 0.9fr;
+      gap: 2.25rem;
+      min-height: 0;
+    }
+
+    .col {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      padding-top: 1rem;
+      border-top: 1px solid var(--rule);
+    }
+
+    .col__label {
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin: 0 0 1.1rem;
+    }
+
+    .problems { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; flex: 1; }
+    .problems li { padding: 0.9rem 0 1rem; border-bottom: 1px solid var(--rule-faint); flex: 1; min-height: 0; }
+    .problems li:last-child { border-bottom: none; }
+
+    .problem__head { display: flex; justify-content: flex-start; align-items: flex-start; margin-bottom: 0.5rem; gap: 1rem; }
+    .problem__num { font-family: var(--serif); font-style: italic; font-size: 1.3rem; color: var(--ink); line-height: 1; padding-top: 0.25rem; }
+
+    .problem__stat {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.15rem;
+      line-height: 1;
+    }
+    .problem__pct {
+      font-family: var(--serif);
+      font-style: italic;
+      font-weight: 400;
+      font-size: 2.1rem;
+      line-height: 0.9;
+      color: var(--ink);
+      letter-spacing: -0.02em;
+    }
+    .problem__frac {
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .problem__name {
+      font-family: var(--sans);
+      font-weight: 400;
+      font-size: 1.15rem;
+      line-height: 1.2;
+      color: var(--ink);
+      margin: 0 0 0.5rem;
+      letter-spacing: -0.008em;
+    }
+
+    .problem__quote {
+      font-family: var(--serif);
+      font-style: italic;
+      font-size: 0.98rem;
+      line-height: 1.4;
+      color: var(--ink-soft);
+      margin: 0 0 0.35rem;
+      padding: 0;
+      border: none;
+    }
+    .problem__quote::before { content: "\201C"; }
+    .problem__quote::after  { content: "\201D"; }
+
+    .problem__by {
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin: 0;
+    }
+
+    .hypothesis {
+      font-family: var(--sans);
+      font-weight: 400;
+      font-size: clamp(1.1rem, 1.45vw, 1.35rem);
+      line-height: 1.28;
+      color: var(--ink);
+      margin: 0 0 1rem;
+      letter-spacing: -0.008em;
+    }
+    .hypothesis b {
+      font-family: var(--serif);
+      font-style: italic;
+      font-weight: 500;
+    }
+
+    .col__body {
+      font-family: var(--serif);
+      font-size: 1rem;
+      line-height: 1.5;
+      color: var(--ink-soft);
+      margin: 0 0 0.9rem;
+    }
+
+    .col__note {
+      font-family: var(--sans);
+      font-size: 0.95rem;
+      line-height: 1.45;
+      color: var(--ink-soft);
+      margin: 0 0 1.25rem;
+      padding-left: 0.9rem;
+      border-left: 2px solid var(--rule);
+    }
+    .col__note b { font-weight: 500; color: var(--ink); }
+
+    .col__next {
+      margin-top: auto;
+      padding-top: 1rem;
+      border-top: 1px solid var(--rule-soft);
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+    }
+    .col__next-label {
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .col__next-text {
+      font-family: var(--serif);
+      font-style: italic;
+      font-size: 1rem;
+      color: var(--ink);
+      line-height: 1.4;
+    }
+
+    .reasons { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; flex: 1; }
+    .reasons li {
+      padding: 0.9rem 0;
+      border-bottom: 1px solid var(--rule-faint);
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 0.9rem;
+      align-items: baseline;
+      flex: 1;
+    }
+    .reasons li:last-child { border-bottom: none; }
+
+    .reasons__num { font-family: var(--serif); font-style: italic; font-size: 1.4rem; color: var(--ink); line-height: 1; }
+    .reasons__text h4 {
+      margin: 0 0 0.25rem;
+      font-family: var(--sans);
+      font-weight: 400;
+      font-size: 1.05rem;
+      color: var(--ink);
+      letter-spacing: -0.008em;
+    }
+    .reasons__text p {
+      margin: 0 0 0.3rem;
+      font-family: var(--serif);
+      font-size: 0.98rem;
+      line-height: 1.4;
+      color: var(--ink-soft);
+    }
+    .reasons__src {
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+
+    /* ══════════════════════════════════════════════════════════ */
+    /*             SLIDE 03 — VALIDATION                          */
+    /* ══════════════════════════════════════════════════════════ */
+    .s03__body {
+      margin-top: 2.5rem;
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 3rem;
+      min-height: 0;
+    }
+
+    .track {
+      padding-top: 1.25rem;
+      border-top: 1px solid var(--rule);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .track__figure {
+      display: flex;
+      align-items: baseline;
+      gap: 1rem;
+      margin: 0 0 1.75rem;
+    }
+
+    .track__number {
+      font-family: var(--sans);
+      font-weight: 300;
+      font-size: clamp(5rem, 10vw, 8.5rem);
+      line-height: 0.85;
+      letter-spacing: -0.04em;
+      color: var(--ink);
+    }
+
+    .track__unit {
+      font-family: var(--serif);
+      font-style: italic;
+      font-weight: 400;
+      font-size: clamp(1.2rem, 1.8vw, 1.7rem);
+      line-height: 1;
+      color: var(--ink-soft);
+    }
+
+    .track__desc {
+      font-family: var(--serif);
+      font-size: 1rem;
+      line-height: 1.55;
+      color: var(--ink);
+      margin: 0 0 1rem;
+      max-width: 36ch;
+    }
+
+    .track__detail {
+      font-family: var(--sans);
+      font-size: 1rem;
+      line-height: 1.45;
+      color: var(--ink-soft);
+      margin: 0;
+      max-width: 38ch;
+    }
+
+    .track__desc a {
+      color: inherit;
+      text-decoration: underline;
+      text-decoration-thickness: 1px;
+      text-underline-offset: 3px;
+      text-decoration-color: var(--muted);
+      transition: text-decoration-color 0.2s ease;
+    }
+    .track__desc a:hover { text-decoration-color: var(--ink); }
+
+
+    /* ══════════════════════════════════════════════════════════ */
+    /*          SLIDE 04 — FUNNEL · NOW vs FUTURE                 */
+    /* ══════════════════════════════════════════════════════════ */
+    .s04__body {
+      margin-top: 2rem;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 2rem;
+      min-height: 0;
+    }
+
+    .funnel-section {
+      padding-top: 1.25rem;
+      border-top: 1px solid var(--rule);
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      min-height: 0;
+    }
+
+    .funnel-section__head {
+      display: flex;
+      align-items: baseline;
+      gap: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .funnel-section__label {
+      font-family: var(--mono);
+      font-weight: 500;
+      font-size: 0.85rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--ink);
+    }
+
+    .funnel-row {
+      display: grid;
+      grid-template-columns: 110px 1fr;
+      gap: 1.25rem;
+      align-items: center;
+      margin-bottom: 0.9rem;
+    }
+    .funnel-row:last-child { margin-bottom: 0; }
+
+    .funnel-row__tag {
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .funnel-row__tag b { color: var(--ink); font-weight: 500; }
+
+    .funnel {
+      display: flex;
+      align-items: center;
+      gap: 0.55rem;
+      flex-wrap: wrap;
+    }
+
+    .stage {
+      padding: 0.7rem 1rem;
+      border: 1px solid var(--rule);
+      background: var(--paper-soft);
+      font-family: var(--sans);
+      font-size: 0.95rem;
+      font-weight: 400;
+      color: var(--ink);
+      letter-spacing: -0.005em;
+      white-space: nowrap;
+    }
+
+    .stage--long { white-space: normal; }
+
+    .stage--bold {
+      background: var(--ink);
+      color: var(--paper);
+      border-color: var(--ink);
+      font-weight: 500;
+    }
+
+    .arrow {
+      font-family: var(--mono);
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+
+    /* ══════════════════════════════════════════════════════════ */
+    /*          SLIDE 05 — CREATIVE · FUNNEL · RESULTS            */
+    /* ══════════════════════════════════════════════════════════ */
+    .s05__body {
+      margin-top: 2rem;
+      flex: 1;
+      display: grid;
+      grid-template-columns: 0.95fr 1.25fr;
+      gap: 2.5rem;
+      min-height: 0;
+    }
+
+    .creative {
+      display: flex;
+      flex-direction: column;
+      padding-top: 1.25rem;
+      border-top: 1px solid var(--rule);
+    }
+
+    .creative__tag {
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin: 0 0 0.75rem;
+    }
+    .creative__tag b { color: var(--ink); font-weight: 500; }
+
+    .creative__name {
+      font-family: var(--sans);
+      font-weight: 400;
+      font-size: 1.5rem;
+      letter-spacing: -0.012em;
+      color: var(--ink);
+      margin: 0 0 1rem;
+    }
+
+    .creative__visual {
+      background: var(--ink);
+      aspect-ratio: 16 / 9;
+      position: relative;
+      overflow: hidden;
+      margin-bottom: 1rem;
+    }
+
+    .creative__visual svg {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    .creative__video {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      background: var(--ink);
+    }
+
+    .creative__visual-label {
+      position: absolute;
+      left: 14px;
+      bottom: 10px;
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--paper-deep);
+      z-index: 2;
+    }
+
+    .creative__hook {
+      font-family: var(--serif);
+      font-style: italic;
+      font-size: 1.08rem;
+      line-height: 1.4;
+      color: var(--ink);
+      margin: 0 0 0.5rem;
+    }
+    .creative__hook::before { content: "\201C"; }
+    .creative__hook::after  { content: "\201D"; }
+
+    .creative__headline {
+      font-family: var(--sans);
+      font-weight: 400;
+      font-size: 0.95rem;
+      color: var(--ink-soft);
+      margin: 0 0 1rem;
+    }
+
+    .insight {
+      margin-top: auto;
+      padding: 0.9rem 1rem;
+      background: var(--paper-soft);
+      border-left: 2px solid var(--ink);
+    }
+    .insight__label {
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin: 0 0 0.35rem;
+    }
+    .insight__text {
+      font-family: var(--sans);
+      font-size: 1.02rem;
+      line-height: 1.4;
+      color: var(--ink);
+      margin: 0;
+      letter-spacing: -0.005em;
+    }
+    .insight__text b {
+      font-family: var(--serif);
+      font-style: italic;
+      font-weight: 500;
+    }
+
+    .metrics-wrap {
+      display: flex;
+      flex-direction: column;
+      padding-top: 1.25rem;
+      border-top: 1px solid var(--rule);
+      min-height: 0;
+    }
+
+    .metrics-head {
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin: 0 0 1rem;
+      display: flex;
+      justify-content: space-between;
+    }
+    .metrics-head b { color: var(--ink); font-weight: 500; }
+
+    table.metrics {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: var(--sans);
+      font-size: 0.95rem;
+    }
+    .metrics th, .metrics td {
+      text-align: left;
+      padding: 0.55rem 0.5rem 0.55rem 0;
+      border-bottom: 1px solid var(--rule-faint);
+      vertical-align: baseline;
+    }
+    .metrics th {
+      font-family: var(--mono);
+      font-weight: 400;
+      font-size: 0.75rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      padding-bottom: 0.4rem;
+    }
+    .metrics td.val {
+      font-family: var(--mono);
+      color: var(--ink);
+      font-weight: 500;
+    }
+    .metrics td.bench { color: var(--muted); font-family: var(--mono); font-size: 0.88rem; }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+    .chip::before {
+      content: "";
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+    .chip--ok    { color: var(--ink-soft); }
+    .chip--warn  { color: var(--warn); }
+    .chip--alert { color: var(--alert); }
+
+    .breakdown { margin-top: 1.25rem; }
+    .breakdown-label {
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin: 0 0 0.6rem;
+    }
+
+    table.breakdown-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: var(--sans);
+      font-size: 0.92rem;
+    }
+    .breakdown-table th, .breakdown-table td {
+      text-align: left;
+      padding: 0.45rem 0.5rem 0.45rem 0;
+      border-bottom: 1px solid var(--rule-faint);
+    }
+    .breakdown-table th {
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      font-weight: 400;
+    }
+    .breakdown-table tr.winner td { font-weight: 500; color: var(--ink); }
+    .breakdown-table td.num {
+      font-family: var(--mono);
+      text-align: right;
+    }
+
+    .honest-note {
+      margin-top: 1rem;
+      padding: 0.75rem 0.9rem;
+      background: var(--paper-soft);
+      font-family: var(--serif);
+      font-style: italic;
+      font-size: 0.95rem;
+      line-height: 1.4;
+      color: var(--ink-soft);
+      border-left: 2px solid var(--muted);
+    }
+    .honest-note b {
+      font-family: var(--sans);
+      font-style: normal;
+      font-weight: 500;
+      color: var(--ink);
+    }
+
+
+    /* ══════════════════════════════════════════════════════════ */
+    /*        SLIDE 06 — SOLUTION · SMART COMPLETION              */
+    /* ══════════════════════════════════════════════════════════ */
+    .s06__thesis {
+      margin-top: 2rem;
+      padding: 1.5rem 1.75rem;
+      background: var(--paper-soft);
+      border-left: 3px solid var(--ink);
+      font-family: var(--serif);
+      font-style: italic;
+      font-size: clamp(1.15rem, 1.6vw, 1.4rem);
+      line-height: 1.4;
+      color: var(--ink);
+      max-width: 72ch;
+    }
+    .s06__thesis::before { content: "\00AB"; margin-right: 0.1em; }
+    .s06__thesis::after  { content: "\00BB"; margin-left: 0.1em; }
+
+    .s06__body {
+      margin-top: 2rem;
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 1.25rem;
+      min-height: 0;
+    }
+
+    .approach {
+      padding: 1.25rem 1.25rem;
+      border: 1px solid var(--rule);
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+
+    .approach--winner {
+      background: var(--ink);
+      color: var(--paper);
+      border-color: var(--ink);
+    }
+
+    .approach__tag {
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin: 0 0 0.6rem;
+    }
+    .approach--winner .approach__tag { color: var(--paper-deep); }
+
+    .approach__name {
+      font-family: var(--sans);
+      font-weight: 400;
+      font-size: 1.3rem;
+      letter-spacing: -0.012em;
+      margin: 0 0 0.35rem;
+    }
+
+    .approach__mode {
+      font-family: var(--serif);
+      font-style: italic;
+      font-size: 1rem;
+      color: var(--ink-soft);
+      margin: 0 0 1rem;
+    }
+    .approach--winner .approach__mode { color: var(--paper-deep); }
+
+    .approach__problem {
+      margin-top: auto;
+      padding-top: 1rem;
+      border-top: 1px solid var(--rule-soft);
+      font-family: var(--sans);
+      font-size: 0.98rem;
+      line-height: 1.45;
+      color: var(--ink-soft);
+    }
+    .approach--winner .approach__problem {
+      color: var(--paper);
+      border-top-color: rgba(232, 225, 206, 0.2);
+    }
+
+
+    /* ══════════════════════════════════════════════════════════ */
+    /*                SLIDE 07 — DEMO (placeholder visual)        */
+    /* ══════════════════════════════════════════════════════════ */
+    .s07__visual-wrap {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 0;
+      padding: 1rem 0;
+    }
+
+    .demo-visual {
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+      max-width: 100%;
+    }
+
+    .demo-visual svg {
+      height: clamp(360px, 60vh, 480px);
+      width: auto;
+      display: block;
+      flex-shrink: 0;
+    }
+
+    /* Pulsing dot loader — minimalist demo placeholder */
+    .demo-loader {
+      width: 60px;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      position: relative;
+    }
+
+    .demo-loader__dot {
+      position: relative;
+      display: block;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--ink);
+    }
+
+    .demo-loader__dot::before,
+    .demo-loader__dot::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      background: var(--ink);
+      opacity: 0.35;
+      animation: demoDotPulse 2.2s ease-out infinite;
+    }
+
+    .demo-loader__dot::after {
+      animation-delay: 1.1s;
+    }
+
+    @keyframes demoDotPulse {
+      0%   { transform: scale(1);   opacity: 0.35; }
+      80%  { transform: scale(6);   opacity: 0;    }
+      100% { transform: scale(6);   opacity: 0;    }
+    }
+
+    .demo-headline {
+      font-family: var(--sans);
+      font-weight: 300;
+      font-size: clamp(3.5rem, 7vw, 6rem);
+      line-height: 0.95;
+      letter-spacing: -0.03em;
+      color: var(--ink);
+      margin: 0;
+    }
+
+
+    /* ══════════════════════════════════════════════════════════ */
+    /*         SLIDE 08 — WHAT'S NEXT · MARKETING + MODEL         */
+    /* ══════════════════════════════════════════════════════════ */
+    .s08__body {
+      margin-top: 2rem;
+      flex: 1;
+      display: grid;
+      grid-template-columns: 0.9fr 1.1fr;
+      gap: 2.5rem;
+      min-height: 0;
+    }
+
+    .next-panel {
+      display: flex;
+      flex-direction: column;
+      padding-top: 1.25rem;
+      border-top: 1px solid var(--rule);
+      min-width: 0;
+    }
+
+    .next-panel__tag {
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin: 0 0 1rem;
+    }
+    .next-panel__tag b { color: var(--ink); font-weight: 500; }
+
+    .targets { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.5rem; }
+    .targets li {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 1rem;
+      padding: 0.7rem 0;
+      border-bottom: 1px solid var(--rule-faint);
+      align-items: baseline;
+    }
+    .targets li:last-child { border-bottom: none; }
+
+    .target__name {
+      font-family: var(--sans);
+      font-size: 1.02rem;
+      color: var(--ink);
+    }
+    .target__name small {
+      display: block;
+      font-family: var(--serif);
+      font-style: italic;
+      font-size: 0.92rem;
+      color: var(--ink-soft);
+      margin-top: 0.15rem;
+    }
+
+    .target__value {
+      font-family: var(--mono);
+      font-size: 0.95rem;
+      letter-spacing: 0.02em;
+      color: var(--ink);
+      text-align: right;
+      white-space: nowrap;
+    }
+    .target__value em {
+      font-style: normal;
+      color: var(--muted);
+    }
+
+    .hero-stat {
+      display: flex;
+      align-items: baseline;
+      gap: 1rem;
+      margin-bottom: 1.25rem;
+      max-width: 100%;
+    }
+    .hero-stat__num {
+      font-family: var(--sans);
+      font-weight: 300;
+      font-size: clamp(3.5rem, 6vw, 5rem);
+      line-height: 0.85;
+      letter-spacing: -0.04em;
+      color: var(--ink);
+    }
+    .hero-stat__unit {
+      font-family: var(--serif);
+      font-style: italic;
+      font-size: clamp(1.05rem, 1.3vw, 1.25rem);
+      color: var(--ink-soft);
+      max-width: 18ch;
+      line-height: 1.3;
+    }
+
+    .evolution {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: var(--sans);
+      font-size: 0.92rem;
+      margin-bottom: 1rem;
+      table-layout: fixed;
+    }
+    .evolution th {
+      font-family: var(--mono);
+      font-weight: 400;
+      font-size: 0.72rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      text-align: left;
+      padding: 0 0.5rem 0.4rem 0;
+      border-bottom: 1px solid var(--rule);
+    }
+    .evolution th:not(:first-child) { text-align: right; }
+    .evolution td {
+      padding: 0.5rem 0.5rem 0.5rem 0;
+      border-bottom: 1px solid var(--rule-faint);
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .evolution td:not(:first-child) {
+      font-family: var(--mono);
+      text-align: right;
+    }
+    .evolution tr.current td { color: var(--ink); font-weight: 500; background: var(--paper-soft); }
+    .evolution tr.target td { color: var(--muted); }
+    .evolution tr.target td:first-child::after {
+      content: " · target";
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    /* Single column for opt-steps */
+    .opt-steps {
+      list-style: none;
+      margin: 0;
+      padding: 0.75rem 0 0;
+      border-top: 1px solid var(--rule-soft);
+      display: flex;
+      flex-direction: column;
+      gap: 0.55rem;
+      font-family: var(--sans);
+      font-size: 0.98rem;
+      color: var(--ink-soft);
+    }
+    .opt-steps li {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 0.65rem;
+      align-items: baseline;
+    }
+    .opt-steps__num {
+      font-family: var(--serif);
+      font-style: italic;
+      color: var(--ink);
+      min-width: 1.6ch;
+    }
+
+
+    /* ══════════════════════════════════════════════════════════ */
+    /*                SLIDE 09 — PRODUCT ROADMAP                  */
+    /* ══════════════════════════════════════════════════════════ */
+    .s09__summary {
+      margin-top: 1.25rem;
+      font-family: var(--sans);
+      font-weight: 400;
+      font-size: clamp(1.1rem, 1.4vw, 1.25rem);
+      line-height: 1.35;
+      color: var(--ink-soft);
+      max-width: 52ch;
+      letter-spacing: -0.008em;
+    }
+
+    .roadmap-list {
+      list-style: none;
+      margin: 2.25rem 0 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      min-height: 0;
+    }
+
+    .roadmap-list li {
+      flex: 1;
+      padding: 1.1rem 0;
+      border-top: 1px solid var(--rule);
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      column-gap: 1.75rem;
+      align-items: baseline;
+    }
+    .roadmap-list li:last-child { border-bottom: 1px solid var(--rule); }
+
+    .rm__num {
+      font-family: var(--serif);
+      font-style: italic;
+      font-size: clamp(2.5rem, 4vw, 3.5rem);
+      line-height: 0.9;
+      color: var(--ink);
+      min-width: 2.4ch;
+    }
+    .rm__body { display: flex; flex-direction: column; gap: 0.3rem; }
+    .rm__name {
+      font-family: var(--sans);
+      font-size: clamp(1.15rem, 1.6vw, 1.5rem);
+      line-height: 1.15;
+      color: var(--ink);
+      letter-spacing: -0.01em;
+    }
+    .rm__desc {
+      font-family: var(--serif);
+      font-style: italic;
+      font-size: 1.02rem;
+      line-height: 1.35;
+      color: var(--ink-soft);
+      max-width: 54ch;
+    }
+    .rm__when {
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+      text-align: right;
+      white-space: nowrap;
+    }
+
+
+    /* ══════════════════════════════════════════════════════════ */
+    /*           SLIDE 05B — JOURNEY MAP (user paths)             */
+    /* ══════════════════════════════════════════════════════════ */
+    .s05b__body {
+      margin-top: 2rem;
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 0;
+      padding: 0.5rem 0;
+    }
+
+    .journey-frame {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #FFFFFF;
+      border: 1px solid var(--rule);
+      padding: 1.25rem;
+      overflow: hidden;
+    }
+
+    .journey-frame img {
+      max-width: 100%;
+      max-height: 100%;
+      width: auto;
+      height: auto;
+      object-fit: contain;
+      display: block;
+    }
+
+
+    /* ══════════════════════════════════════════════════════════ */
+    /*                       RESPONSIVE                           */
+    /* ══════════════════════════════════════════════════════════ */
+    @media (max-width: 1200px) {
+      .s02__body { grid-template-columns: 1fr 1fr; gap: 2rem; }
+      .s02__body .col:nth-child(3) { grid-column: 1 / -1; }
+      .s05__body { grid-template-columns: 1fr; gap: 1.5rem; }
+      .s06__body { grid-template-columns: 1fr; }
+      .s08__body { grid-template-columns: 1fr; }
+      .demo-visual { gap: 2rem; }
+    }
+
+    @media (max-width: 1024px) {
+      html { scroll-snap-type: none; }
+      .slide { height: auto; min-height: 100vh; grid-template-columns: 64px 1fr; }
+      #slide-01 { grid-template-columns: 64px 1fr; }
+      .topbar { left: 64px; padding: 0 1.5rem; right: 1.5rem; }
+      .slide__main, .s01__content { padding: 1.5rem 1.5rem 2rem; }
+      .slide__head, .s01__inner { margin-top: 3rem; }
+      .agenda { grid-column: 1 / -1; padding: 0 1.5rem 2.5rem 1.5rem; margin-top: 0; }
+      .s02__body, .s03__body { grid-template-columns: 1fr; gap: 1.5rem; }
+      .deck-nav { right: 0.75rem; }
+      .demo-visual { flex-direction: column; gap: 1.5rem; }
+    }
+
+    @media (max-width: 640px) {
+      .title { font-size: 2.2rem !important; }
+      .track__number { font-size: 4.5rem; }
+      .hero-stat__num { font-size: 3.5rem; }
+      .deck-nav a { font-size: 0.6rem; }
+      .funnel-row { grid-template-columns: 1fr; gap: 0.5rem; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ═════════════════════ Deck Navigation ═════════════════════ -->
+  <nav class="deck-nav" aria-label="Слайды">
+    <a href="#slide-01" data-slide="01">01</a>
+    <a href="#slide-02" data-slide="02">02</a>
+    <a href="#slide-03" data-slide="03">03</a>
+    <a href="#slide-04" data-slide="04">04</a>
+    <a href="#slide-05" data-slide="05">05</a>
+    <a href="#slide-05b" data-slide="06">06</a>
+    <a href="#slide-06" data-slide="07">07</a>
+    <a href="#slide-07" data-slide="08">08</a>
+    <a href="#slide-08" data-slide="09">09</a>
+    <a href="#slide-09" data-slide="10">10</a>
+  </nav>
+
+
+  <!-- ════════════════════════════════════════════════════════════ -->
+  <!--                SLIDE 01 — INTRO                              -->
+  <!-- ════════════════════════════════════════════════════════════ -->
+  <section class="slide s01" id="slide-01">
+
+    <aside class="sidebar">
+      <div class="monogram" aria-label="AI Estimates">
+        <span class="monogram__a">A</span>
+        <span class="monogram__i">i</span>
+      </div>
+    </aside>
+
+    <div class="topbar">
+      <div class="topbar__left">Smart Completion for Estimates</div>
+      <div class="topbar__right"><b>01</b> · intro</div>
+    </div>
+
+    <main class="s01__content">
+      <div class="s01__inner">
+        <h1 class="title">
+          AI-Эстимейты<br/>
+          в&nbsp;<em>Tofu&nbsp;FS&nbsp;iOS</em>
+        </h1>
+      </div>
+
+      <div class="slide__foot">
+        <span>April 2026</span>
+      </div>
+    </main>
+
+    <section class="agenda">
+      <p class="agenda__label">Сегодня покажем</p>
+
+      <ol class="agenda__list">
+        <li>
+          <span class="agenda__num">01</span>
+          <span class="agenda__text">
+            <span class="agenda__name">Проблема</span>
+            <span class="agenda__desc">для кого она и почему мобилка</span>
+          </span>
+        </li>
+        <li>
+          <span class="agenda__num">02</span>
+          <span class="agenda__text">
+            <span class="agenda__name">Валидация</span>
+            <span class="agenda__desc">33 интервью + первые цифры с рекламы</span>
+          </span>
+        </li>
+        <li>
+          <span class="agenda__num">03</span>
+          <span class="agenda__text">
+            <span class="agenda__name">Решение</span>
+            <span class="agenda__desc">Smart Completion + живое демо</span>
+          </span>
+        </li>
+        <li>
+          <span class="agenda__num">04</span>
+          <span class="agenda__text">
+            <span class="agenda__name">Что дальше</span>
+            <span class="agenda__desc">маркетинг, модель, продукт</span>
+          </span>
+        </li>
+      </ol>
+    </section>
+
+  </section>
+
+
+  <!-- ════════════════════════════════════════════════════════════ -->
+  <!--             SLIDE 02 — PROBLEM & AUDIENCE                    -->
+  <!-- ════════════════════════════════════════════════════════════ -->
+  <section class="slide s02" id="slide-02">
+
+    <aside class="sidebar">
+      <div class="monogram"><span class="monogram__a">A</span><span class="monogram__i">i</span></div>
+    </aside>
+
+    <div class="topbar">
+      <div class="topbar__left">Smart Completion for Estimates</div>
+      <div class="topbar__right"><b>02</b> · problem</div>
+    </div>
+
+    <main class="slide__main">
+      <header class="slide__head">
+        <h1 class="title title--md">
+          Проблема<br/>и&nbsp;<em>для кого</em>
+        </h1>
+      </header>
+
+      <div class="s02__body">
+
+        <!-- Col 1 · Three problems -->
+        <div class="col">
+          <p class="col__label">Три боли · 33 интервью</p>
+          <ol class="problems">
+            <li>
+              <div class="problem__head">
+                <span class="problem__stat">
+                  <span class="problem__pct">18%</span>
+                </span>
+              </div>
+              <h3 class="problem__name">Не уверены, что цена правильная</h3>
+              <p class="problem__quote">I give the estimate to ChatGPT… just to let me know if I'm in the sweet spot area.</p>
+            </li>
+            <li>
+              <div class="problem__head">
+                <span class="problem__stat">
+                  <span class="problem__pct">15%</span>
+                </span>
+              </div>
+              <h3 class="problem__name">Шаблонные цены ≠ рынок</h3>
+              <p class="problem__quote">It came in $1,200 higher… We called him back to knock off that much.</p>
+            </li>
+            <li>
+              <div class="problem__head">
+                <span class="problem__stat">
+                  <span class="problem__pct">12%</span>
+                </span>
+              </div>
+              <h3 class="problem__name">Эстимейты съедают часы</h3>
+              <p class="problem__quote">I absolutely despise estimating jobs. 10 hours a week I could save.</p>
+            </li>
+          </ol>
+        </div>
+
+        <!-- Col 2 · Для кого -->
+        <div class="col">
+          <p class="col__label">Для кого · гипотеза</p>
+
+          <p class="hypothesis">
+            Острее всего у <b>solo</b> и <b>начинающих</b> Пользователей
+          </p>
+
+          <p class="col__body">
+            У опытных команд уже есть свой прайсбук, который они актуализируют по индустрии. У solo, интуиция и неуверенность
+          </p>
+
+          <p class="col__note">
+            В нашей выборке из 33 интервью фокус был на командах и крупных, <b>18% это нижняя граница</b>. Реальная доля у solo может быть выше и надо убедиться, что у менеджеров с командой реально существует проблема
+          </p>
+        </div>
+
+        <!-- Col 3 · Почему мобилка -->
+        <div class="col">
+          <p class="col__label">Почему мобилка</p>
+          <ol class="reasons">
+            <li>
+              <span class="reasons__num">01</span>
+              <div class="reasons__text">
+                <h4>Делается на месте</h4>
+                <p>15–30 минут от walk-through до старта работ</p>
+              </div>
+            </li>
+            <li>
+              <span class="reasons__num">02</span>
+              <div class="reasons__text">
+                <h4>Фото проще с телефона</h4>
+                <p>Уже workflow: фоткает и отправляет в ChatGPT</p>
+              </div>
+            </li>
+            <li>
+              <span class="reasons__num">03</span>
+              <div class="reasons__text">
+                <h4>Пользователи в поле</h4>
+                <p>Планшет на walk-through, не за компом</p>
+              </div>
+            </li>
+          </ol>
+        </div>
+
+      </div>
+    </main>
+
+  </section>
+
+
+  <!-- ════════════════════════════════════════════════════════════ -->
+  <!--             SLIDE 03 — VALIDATION                            -->
+  <!-- ════════════════════════════════════════════════════════════ -->
+  <section class="slide s03" id="slide-03">
+
+    <aside class="sidebar">
+      <div class="monogram"><span class="monogram__a">A</span><span class="monogram__i">i</span></div>
+    </aside>
+
+    <div class="topbar">
+      <div class="topbar__left">Smart Completion for Estimates</div>
+      <div class="topbar__right"><b>03</b> · validation</div>
+    </div>
+
+    <main class="slide__main">
+      <header class="slide__head">
+        <h1 class="title title--md">
+          Валидация<br/><em>проблемы</em>
+        </h1>
+      </header>
+
+      <div class="s03__body">
+
+        <div class="track">
+          <div class="track__figure">
+            <span class="track__number">33</span>
+            <span class="track__unit">интервью</span>
+          </div>
+
+          <p class="track__desc">
+            Depersonalised interviews. Транскрипты, дословные цитаты. Вытащили три топ-проблемы по частоте
+          </p>
+        </div>
+
+        <div class="track">
+          <div class="track__figure">
+            <span class="track__number">CR&nbsp;5%</span>
+          </div>
+
+          <p class="track__desc">
+            Запущены Meta Ads. 3 видео-креатива, <a href="https://tofu.com/product/ai-estimates" target="_blank" rel="noopener">лендинг</a>, email capture
+          </p>
+        </div>
+
+      </div>
+    </main>
+
+  </section>
+
+
+  <!-- ════════════════════════════════════════════════════════════ -->
+  <!--            SLIDE 04 — FUNNEL · NOW vs FUTURE                 -->
+  <!-- ════════════════════════════════════════════════════════════ -->
+  <section class="slide s04" id="slide-04">
+
+    <aside class="sidebar">
+      <div class="monogram"><span class="monogram__a">A</span><span class="monogram__i">i</span></div>
+    </aside>
+
+    <div class="topbar">
+      <div class="topbar__left">Smart Completion for Estimates</div>
+      <div class="topbar__right"><b>04</b> · funnel</div>
+    </div>
+
+    <main class="slide__main">
+      <header class="slide__head">
+        <h1 class="title title--md">
+          Реализация флоу:<br/>сейчас и&nbsp;<em>как будет</em>
+        </h1>
+      </header>
+
+      <div class="s04__body">
+
+        <!-- NOW -->
+        <div class="funnel-section">
+          <div class="funnel-section__head">
+            <span class="funnel-section__label">Сейчас · две независимые воронки</span>
+          </div>
+
+          <div class="funnel-row">
+            <span class="funnel-row__tag"><b>01</b> marketing</span>
+            <div class="funnel">
+              <div class="stage">Креатив</div>
+              <span class="arrow">→</span>
+              <div class="stage">Лендинг</div>
+              <span class="arrow">→</span>
+              <div class="stage">Email capture</div>
+            </div>
+          </div>
+
+          <div class="funnel-row">
+            <span class="funnel-row__tag"><b>02</b> product</span>
+            <div class="funnel">
+              <div class="stage stage--long">MVP в отдельном тестовом iOS app</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- FUTURE -->
+        <div class="funnel-section">
+          <div class="funnel-section__head">
+            <span class="funnel-section__label">Как будет · единая воронка</span>
+          </div>
+
+          <div class="funnel-row">
+            <span class="funnel-row__tag">single flow</span>
+            <div class="funnel">
+              <div class="stage">Креатив</div>
+              <span class="arrow">→</span>
+              <div class="stage">Лендинг</div>
+              <span class="arrow">→</span>
+              <div class="stage stage--bold">Install Tofu FS iOS</div>
+              <span class="arrow">→</span>
+              <div class="stage">Use AI-Estimates</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </main>
+
+  </section>
+
+
+  <!-- ════════════════════════════════════════════════════════════ -->
+  <!--         SLIDE 05 — CREATIVE · FUNNEL · RESULTS               -->
+  <!-- ════════════════════════════════════════════════════════════ -->
+  <section class="slide s05" id="slide-05">
+
+    <aside class="sidebar">
+      <div class="monogram"><span class="monogram__a">A</span><span class="monogram__i">i</span></div>
+    </aside>
+
+    <div class="topbar">
+      <div class="topbar__left">Smart Completion for Estimates</div>
+      <div class="topbar__right"><b>05</b> · results</div>
+    </div>
+
+    <main class="slide__main">
+      <header class="slide__head">
+        <h1 class="title title--md">
+          Что запустили<br/>и <em>что увидели</em>
+        </h1>
+      </header>
+
+      <div class="s05__body">
+
+        <!-- Creative column -->
+        <div class="creative">
+          <p class="creative__tag"><b>Победитель</b></p>
+          <h3 class="creative__name">Stair repair estimate using Invoice Maker</h3>
+
+          <div class="creative__visual" aria-hidden="true">
+            <video
+              class="creative__video"
+              src="creative.mp4"
+              autoplay
+              loop
+              muted
+              playsinline
+              preload="auto"
+            ></video>
+            <span class="creative__visual-label">Staircase · broken</span>
+          </div>
+        </div>
+
+        <!-- Metrics column -->
+        <div class="metrics-wrap">
+          <table class="metrics">
+            <thead>
+              <tr>
+                <th>Метрика</th>
+                <th>Факт</th>
+                <th>Бенчмарк</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>Spent</td><td class="val">$213.11</td><td class="bench">—</td></tr>
+              <tr><td>Impressions</td><td class="val">11,750</td><td class="bench">—</td></tr>
+              <tr><td>Clicks</td><td class="val">134</td><td class="bench">—</td></tr>
+              <tr><td>CTR</td><td class="val">1.14%</td><td class="bench">0.9–1.5%</td></tr>
+              <tr><td>CPC</td><td class="val">$1.59</td><td class="bench">$1–2</td></tr>
+              <tr><td>Emails</td><td class="val">7</td><td class="bench">—</td></tr>
+              <tr><td>Click → Email</td><td class="val">5.2%</td><td class="bench">8–15%</td></tr>
+              <tr><td>CPL</td><td class="val">$30.44</td><td class="bench">$5–20</td></tr>
+            </tbody>
+          </table>
+
+          <div class="breakdown">
+            <p class="breakdown-label">Разбивка по креативам</p>
+            <table class="breakdown-table">
+              <thead>
+                <tr><th>Креатив</th><th style="text-align:right">Impr.</th><th style="text-align:right">CTR</th><th style="text-align:right">Emails</th></tr>
+              </thead>
+              <tbody>
+                <tr class="winner"><td>#2 · staircase</td><td class="num">10,495</td><td class="num">1.09%</td><td class="num">7</td></tr>
+                <tr><td>#1</td><td class="num">722</td><td class="num">1.66%</td><td class="num">0</td></tr>
+                <tr><td>#3</td><td class="num">220</td><td class="num">0.91%</td><td class="num">0</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </main>
+
+  </section>
+
+
+  <!-- ════════════════════════════════════════════════════════════ -->
+  <!--              SLIDE 05B — JOURNEY MAP · PATHS                 -->
+  <!-- ════════════════════════════════════════════════════════════ -->
+  <section class="slide s05b" id="slide-05b">
+
+    <aside class="sidebar">
+      <div class="monogram"><span class="monogram__a">A</span><span class="monogram__i">i</span></div>
+    </aside>
+
+    <div class="topbar">
+      <div class="topbar__left">Smart Completion for Estimates</div>
+      <div class="topbar__right"><b>06</b> · journey map</div>
+    </div>
+
+    <main class="slide__main">
+      <header class="slide__head">
+        <h1 class="title title--md">
+          Journey<br/><em>map</em>
+        </h1>
+      </header>
+
+      <div class="s05b__body">
+        <div class="journey-frame">
+          <img src="journey-map.png" alt="User journey map — пути пользователей от Page Viewed до webflow_form_submitted" />
+        </div>
+      </div>
+    </main>
+
+  </section>
+
+
+  <!-- ════════════════════════════════════════════════════════════ -->
+  <!--         SLIDE 06 — SOLUTION · SMART COMPLETION               -->
+  <!-- ════════════════════════════════════════════════════════════ -->
+  <section class="slide s06" id="slide-06">
+
+    <aside class="sidebar">
+      <div class="monogram"><span class="monogram__a">A</span><span class="monogram__i">i</span></div>
+    </aside>
+
+    <div class="topbar">
+      <div class="topbar__left">Smart Completion for Estimates</div>
+      <div class="topbar__right"><b>07</b> · solution</div>
+    </div>
+
+    <main class="slide__main">
+      <header class="slide__head">
+        <h1 class="title title--md">
+          Smart<br/><em>Completion</em>
+        </h1>
+      </header>
+
+      <p class="s06__thesis">
+        Пользователь собирает estimate как обычно. Мы подсказываем, где цена отличается от рынка и какие позиции обычно есть у соседей, но нет у него
+      </p>
+
+      <div class="s06__body">
+
+        <div class="approach">
+          <p class="approach__tag">Подход A</p>
+          <h3 class="approach__name">Generator</h3>
+          <p class="approach__mode">AI делает за тебя</p>
+          <p class="approach__problem">
+            AI cringe у blue-collar. Пользователь теряет контроль и ownership над сметой
+          </p>
+        </div>
+
+        <div class="approach">
+          <p class="approach__tag">Подход B</p>
+          <h3 class="approach__name">Price sanity-check</h3>
+          <p class="approach__mode">Проверка в самом конце</p>
+          <p class="approach__problem">
+            Срабатывает на финальном шаге. Пользователю нужно переделывать с нуля и думать, для каких айтемов менять цену
+          </p>
+        </div>
+
+        <div class="approach approach--winner">
+          <p class="approach__tag">Наш путь</p>
+          <h3 class="approach__name">Smart completion</h3>
+          <p class="approach__mode">Подсказки в процессе · like spellcheck</p>
+          <p class="approach__problem">
+            Пользователь ведёт, AI подсказывает. Контроль у юзера, AI добавляет рыночный контекст
+          </p>
+        </div>
+
+      </div>
+    </main>
+
+  </section>
+
+
+  <!-- ════════════════════════════════════════════════════════════ -->
+  <!--                  SLIDE 07 — DEMO                             -->
+  <!-- ════════════════════════════════════════════════════════════ -->
+  <section class="slide s07" id="slide-07">
+
+    <aside class="sidebar">
+      <div class="monogram"><span class="monogram__a">A</span><span class="monogram__i">i</span></div>
+    </aside>
+
+    <div class="topbar">
+      <div class="topbar__left">Smart Completion for Estimates</div>
+      <div class="topbar__right"><b>08</b> · demo</div>
+    </div>
+
+    <main class="slide__main">
+      <div class="s07__visual-wrap">
+        <div class="demo-visual">
+
+          <!-- Minimalist loader · pulsing dot -->
+          <div class="demo-loader" aria-hidden="true">
+            <span class="demo-loader__dot"></span>
+          </div>
+
+          <!-- Big headline -->
+          <p class="demo-headline">Live demo</p>
+
+        </div>
+      </div>
+    </main>
+
+  </section>
+
+
+  <!-- ════════════════════════════════════════════════════════════ -->
+  <!--         SLIDE 08 — WHAT'S NEXT · MARKETING + MODEL           -->
+  <!-- ════════════════════════════════════════════════════════════ -->
+  <section class="slide s08" id="slide-08">
+
+    <aside class="sidebar">
+      <div class="monogram"><span class="monogram__a">A</span><span class="monogram__i">i</span></div>
+    </aside>
+
+    <div class="topbar">
+      <div class="topbar__left">Smart Completion for Estimates</div>
+      <div class="topbar__right"><b>09</b> · what's next</div>
+    </div>
+
+    <main class="slide__main">
+      <header class="slide__head">
+        <h1 class="title title--md">
+          Что дальше:<br/><em>маркетинг + модель</em>
+        </h1>
+      </header>
+
+      <div class="s08__body">
+
+        <!-- Marketing -->
+        <div class="next-panel">
+          <p class="next-panel__tag"><b>01</b> marketing</p>
+
+          <ul class="targets">
+            <li>
+              <span class="target__name">
+                Конверсия лендинга
+                <small>цель: перестроить под месседж «missing items»</small>
+              </span>
+              <span class="target__value">5.2% <em>→ 8–10%</em></span>
+            </li>
+            <li>
+              <span class="target__name">
+                CPL
+                <small>падает с $46 → $30 за сутки</small>
+              </span>
+              <span class="target__value">$30 <em>→ &lt;$20</em></span>
+            </li>
+            <li>
+              <span class="target__name">
+                CPI install
+                <small>после перехода на install-воронку</small>
+              </span>
+              <span class="target__value"><em>новая метрика</em></span>
+            </li>
+            <li>
+              <span class="target__name">
+                A/B лендинга
+                <small>новая страница под победивший креатив</small>
+              </span>
+              <span class="target__value"><em>в работе</em></span>
+            </li>
+          </ul>
+        </div>
+
+        <!-- Model -->
+        <div class="next-panel">
+          <p class="next-panel__tag"><b>02</b> model optimization</p>
+
+          <div class="hero-stat">
+            <span class="hero-stat__num">−84%</span>
+            <span class="hero-stat__unit">cost per request,<br/>уже сделано за хакатон</span>
+          </div>
+
+          <table class="evolution">
+            <thead>
+              <tr>
+                <th>Этап</th>
+                <th>Cost</th>
+                <th>Latency</th>
+                <th>Input tokens</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>Start · Gemini 2.5 Flash</td><td>$0.137</td><td>6.57s</td><td>453,000</td></tr>
+              <tr><td>Switch · Claude Haiku 4.5</td><td>$0.032</td><td>1.69s</td><td>16,791</td></tr>
+              <tr class="current"><td>Now · optimized output</td><td>$0.022</td><td>~1.5s</td><td>17,391</td></tr>
+              <tr class="target"><td>After retrieval</td><td>~$0.002</td><td>&lt;1s</td><td>~1,800</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+      </div>
+    </main>
+
+  </section>
+
+
+  <!-- ════════════════════════════════════════════════════════════ -->
+  <!--            SLIDE 09 — WHAT'S NEXT · PRODUCT                  -->
+  <!-- ════════════════════════════════════════════════════════════ -->
+  <section class="slide s09" id="slide-09">
+
+    <aside class="sidebar">
+      <div class="monogram"><span class="monogram__a">A</span><span class="monogram__i">i</span></div>
+    </aside>
+
+    <div class="topbar">
+      <div class="topbar__left">Smart Completion for Estimates</div>
+      <div class="topbar__right"><b>10</b> · product roadmap</div>
+    </div>
+
+    <main class="slide__main">
+      <header class="slide__head">
+        <h1 class="title title--md">
+          Что дальше:<br/><em>по продукту</em>
+        </h1>
+        <p class="s09__summary">
+          Четыре направления на следующий спринт: валидация, глубина, новые инпуты, экономика
+        </p>
+      </header>
+
+      <ol class="roadmap-list">
+        <li>
+          <span class="rm__num">01</span>
+          <span class="rm__body">
+            <span class="rm__name">Юзер-валидация</span>
+            <span class="rm__desc">Интервью с реальными юзерами. Больше вопросов про эстимейты. Готовность командных компаний платить</span>
+          </span>
+        </li>
+        <li>
+          <span class="rm__num">02</span>
+          <span class="rm__body">
+            <span class="rm__name">Региональные цены</span>
+            <span class="rm__desc">Учитывать локацию, чтобы отдавать только цены по локации</span>
+          </span>
+        </li>
+        <li>
+          <span class="rm__num">03</span>
+          <span class="rm__body">
+            <span class="rm__name">AR-модуль</span>
+            <span class="rm__desc">Штука, которая измеряет расстояния и автоматом заполняет scope в смете</span>
+          </span>
+        </li>
+        <li>
+          <span class="rm__num">04</span>
+          <span class="rm__body">
+            <span class="rm__name">Тариф и unit-экономика</span>
+            <span class="rm__desc">В какой план положить фичу. Посчитать экономику</span>
+          </span>
+        </li>
+      </ol>
+    </main>
+
+  </section>
+
+
+  <!-- ═════════════════════ Keyboard nav ════════════════════════ -->
+  <script>
+    (function () {
+      const slides = Array.from(document.querySelectorAll('.slide'));
+      const dots   = Array.from(document.querySelectorAll('.deck-nav a'));
+
+      const io = new IntersectionObserver((entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            const id = entry.target.id;
+            dots.forEach((d) => {
+              d.classList.toggle('is-active', d.getAttribute('href') === '#' + id);
+            });
+          }
+        });
+      }, { threshold: 0.55 });
+      slides.forEach((s) => io.observe(s));
+
+      let isScrolling = false;
+      document.addEventListener('keydown', (e) => {
+        if (isScrolling) return;
+        const keys = ['ArrowDown','ArrowRight','PageDown',' ','ArrowUp','ArrowLeft','PageUp'];
+        if (!keys.includes(e.key)) return;
+        e.preventDefault();
+
+        const cur = Math.round(window.scrollY / window.innerHeight);
+        const forward = ['ArrowDown','ArrowRight','PageDown',' '].includes(e.key);
+        const next = forward ? Math.min(cur + 1, slides.length - 1) : Math.max(cur - 1, 0);
+        if (next === cur) return;
+
+        isScrolling = true;
+        slides[next].scrollIntoView({ behavior: 'smooth' });
+        setTimeout(() => { isScrolling = false; }, 600);
+      });
+    })();
+  </script>
+
+</body>
+</html>
