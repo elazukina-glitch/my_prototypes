@@ -1,2144 +1,1981 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AI-Эстимейты · Tofu FS iOS</title>
-  <meta name="description" content="AI-Estimates for Tofu FS iOS — Smart Completion." />
-
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link
-    href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Serif:ital,wght@0,400;0,500;1,400;1,500&family=IBM+Plex+Mono:wght@400;500&display=swap"
-    rel="stylesheet"
-  />
-
-  <style>
-    :root {
-      --paper:       #E8E1CE;
-      --paper-soft:  #EDE6D4;
-      --paper-deep:  #DDD4B8;
-      --ink:         #161411;
-      --ink-soft:    #2E2A22;
-      --muted:       #5A5347;
-      --muted-soft:  #7A7260;
-      --rule:        #CEC4A8;
-      --rule-soft:   rgba(22, 20, 17, 0.12);
-      --rule-faint:  rgba(22, 20, 17, 0.06);
-      --accent:      #161411;
-      --warn:        #9B6B35;
-      --alert:       #A24A36;
-
-      --sans:  "IBM Plex Sans",  -apple-system, BlinkMacSystemFont, sans-serif;
-      --serif: "IBM Plex Serif", Georgia, serif;
-      --mono:  "IBM Plex Mono",  ui-monospace, monospace;
-
-      --right-reserve: 4.5rem;
-    }
-
-    *, *::before, *::after { box-sizing: border-box; }
-
-    html, body { margin: 0; padding: 0; height: 100%; }
-
-    html {
-      scroll-snap-type: y mandatory;
-      scroll-behavior: smooth;
-      overflow-y: scroll;
-    }
-
-    body {
-      background: var(--paper);
-      color: var(--ink);
-      font-family: var(--sans);
-      font-weight: 400;
-      font-size: 16px;
-      line-height: 1.5;
-      -webkit-font-smoothing: antialiased;
-      -moz-osx-font-smoothing: grayscale;
-    }
-
-    ::selection { background: var(--ink); color: var(--paper); }
-
-    html::-webkit-scrollbar { width: 0; background: transparent; }
-    html { scrollbar-width: none; }
-
-
-    /* ══════════════════════════════════════════════════════════ */
-    /*                    DECK NAV (right edge)                   */
-    /* ══════════════════════════════════════════════════════════ */
-    .deck-nav {
-      position: fixed;
-      right: 1.25rem;
-      top: 50%;
-      transform: translateY(-50%);
-      display: flex;
-      flex-direction: column;
-      gap: 0.9rem;
-      z-index: 100;
-      font-family: var(--mono);
-      font-size: 0.78rem;
-      letter-spacing: 0.1em;
-    }
-
-    .deck-nav a {
-      color: var(--muted);
-      text-decoration: none;
-      transition: color 0.25s ease;
-      padding: 0.1rem 0.35rem;
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      position: relative;
-    }
-
-    .deck-nav a::before {
-      content: "";
-      width: 14px;
-      height: 1px;
-      background: var(--rule);
-      transition: all 0.3s ease;
-    }
-
-    .deck-nav a:hover { color: var(--ink); }
-
-    .deck-nav a.is-active { color: var(--ink); font-weight: 500; }
-
-    .deck-nav a.is-active::before {
-      background: var(--ink);
-      width: 24px;
-    }
-
-
-    /* ══════════════════════════════════════════════════════════ */
-    /*                          SLIDE                             */
-    /* ══════════════════════════════════════════════════════════ */
-    .slide {
-      height: 100vh;
-      scroll-snap-align: start;
-      scroll-snap-stop: always;
-      display: grid;
-      grid-template-columns: 84px 1fr;
-      position: relative;
-      overflow: hidden;
-    }
-
-    /* ─────────── Sidebar (monogram only) ─────────── */
-    .sidebar {
-      border-right: 1px solid var(--rule);
-      padding: 2rem 0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
-
-    .monogram {
-      position: relative;
-      width: 46px;
-      height: 46px;
-      font-family: var(--sans);
-      font-weight: 400;
-      font-size: 1.9rem;
-      line-height: 1;
-      color: var(--accent);
-      letter-spacing: -0.06em;
-    }
-
-    .monogram::before, .monogram::after {
-      content: "";
-      position: absolute;
-      background: var(--accent);
-      z-index: 0;
-    }
-    .monogram::before { left: 50%; top: -4px;  bottom: -4px; width: 1px; }
-    .monogram::after  { top: 50%;  left: -4px; right: -4px;  height: 1px; }
-
-    .monogram__a, .monogram__i {
-      position: absolute;
-      background: var(--paper);
-      padding: 0 4px;
-      z-index: 1;
-    }
-    .monogram__a { top: -2px; left: -2px; }
-    .monogram__i { bottom: -2px; right: -4px; }
-
-    /* ─────────── Topbar (per slide) ─────────── */
-    .topbar {
-      position: absolute;
-      top: 2.25rem;
-      left: 84px;
-      right: var(--right-reserve);
-      display: flex;
-      justify-content: space-between;
-      align-items: baseline;
-      padding: 0 2.5rem;
-      z-index: 10;
-    }
-
-    .topbar__left {
-      font-family: var(--serif);
-      font-style: italic;
-      font-weight: 400;
-      font-size: 1.15rem;
-      color: var(--ink);
-      letter-spacing: 0;
-    }
-
-    .topbar__right {
-      font-family: var(--mono);
-      font-size: 0.82rem;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      color: var(--muted);
-    }
-    .topbar__right b {
-      color: var(--ink);
-      font-weight: 500;
-      margin-right: 0.75rem;
-    }
-
-    /* ─────────── Slide main content ─────────── */
-    .slide__main {
-      padding: 2.25rem var(--right-reserve) 2.5rem 2.5rem;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-      position: relative;
-      min-width: 0;
-    }
-
-    .slide__head { margin-top: 5rem; }
-
-    .title {
-      font-family: var(--sans);
-      font-weight: 400;
-      font-size: clamp(2.25rem, 4.4vw, 4rem);
-      line-height: 1.02;
-      letter-spacing: -0.022em;
-      color: var(--ink);
-      margin: 0;
-    }
-
-    .title--md { font-size: clamp(2rem, 3.4vw, 3rem); }
-
-    .title em {
-      font-family: var(--serif);
-      font-style: italic;
-      font-weight: 400;
-      letter-spacing: -0.015em;
-    }
-
-    .slide__foot {
-      margin-top: auto;
-      padding-top: 1.25rem;
-      border-top: 1px solid var(--rule-soft);
-      display: flex;
-      justify-content: space-between;
-      align-items: baseline;
-      font-family: var(--mono);
-      font-size: 0.8rem;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: var(--muted);
-    }
-    .slide__foot b { color: var(--ink); font-weight: 500; }
-
-
-    /* ══════════════════════════════════════════════════════════ */
-    /*                 SLIDE 01 — INTRO                           */
-    /* ══════════════════════════════════════════════════════════ */
-    #slide-01 { grid-template-columns: 84px minmax(0, 1.05fr) minmax(0, 1fr); }
-
-    .s01__content {
-      padding: 2.25rem 2.5rem 2.5rem;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
-    .s01__inner {
-      margin-top: 5rem;
-      display: flex;
-      flex-direction: column;
-      flex: 1;
-      min-height: 0;
-      justify-content: center;
-    }
-
-    .agenda {
-      padding: 2.25rem var(--right-reserve) 2.5rem 2rem;
-      display: flex;
-      flex-direction: column;
-      margin-top: 5rem;
-      overflow: hidden;
-    }
-
-    .agenda__label {
-      font-family: var(--mono);
-      font-weight: 500;
-      font-size: 0.82rem;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      color: var(--muted);
-      margin: 0 0 1.5rem;
-    }
-
-    .agenda__list {
-      list-style: none;
-      margin: 0;
-      padding: 0;
-      display: flex;
-      flex-direction: column;
-      flex: 1;
-      min-height: 0;
-    }
-
-    .agenda__list li {
-      flex: 1;
-      padding: 1rem 0;
-      border-top: 1px solid var(--rule);
-      display: flex;
-      align-items: baseline;
-    }
-    .agenda__list li:last-child { border-bottom: 1px solid var(--rule); }
-
-    .agenda__num {
-      font-family: var(--serif);
-      font-style: italic;
-      font-size: clamp(2.5rem, 4vw, 3.5rem);
-      line-height: 0.9;
-      color: var(--ink);
-      min-width: 2.4ch;
-    }
-
-    .agenda__text { display: flex; flex-direction: column; gap: 0.25rem; }
-
-    .agenda__name {
-      font-family: var(--sans);
-      font-size: clamp(1.1rem, 1.5vw, 1.4rem);
-      line-height: 1.15;
-      color: var(--ink);
-      letter-spacing: -0.01em;
-    }
-
-    .agenda__desc {
-      font-family: var(--serif);
-      font-style: italic;
-      font-size: 1.02rem;
-      line-height: 1.35;
-      color: var(--ink-soft);
-    }
-
-
-    /* ══════════════════════════════════════════════════════════ */
-    /*            SLIDE 02 — PROBLEM & AUDIENCE                   */
-    /* ══════════════════════════════════════════════════════════ */
-    .s02__body {
-      margin-top: 2rem;
-      flex: 1;
-      display: grid;
-      grid-template-columns: 1.05fr 0.85fr 0.9fr;
-      gap: 2.25rem;
-      min-height: 0;
-    }
-
-    .col {
-      display: flex;
-      flex-direction: column;
-      min-width: 0;
-      padding-top: 1rem;
-      border-top: 1px solid var(--rule);
-    }
-
-    .col__label {
-      font-family: var(--mono);
-      font-size: 0.8rem;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      color: var(--muted);
-      margin: 0 0 1.1rem;
-    }
-
-    .problems { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; flex: 1; }
-    .problems li { padding: 0.9rem 0 1rem; border-bottom: 1px solid var(--rule-faint); flex: 1; min-height: 0; }
-    .problems li:last-child { border-bottom: none; }
-
-    .problem__head { display: flex; justify-content: flex-start; align-items: flex-start; margin-bottom: 0.5rem; gap: 1rem; }
-    .problem__num { font-family: var(--serif); font-style: italic; font-size: 1.3rem; color: var(--ink); line-height: 1; padding-top: 0.25rem; }
-
-    .problem__stat {
-      display: flex;
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 0.15rem;
-      line-height: 1;
-    }
-    .problem__pct {
-      font-family: var(--serif);
-      font-style: italic;
-      font-weight: 400;
-      font-size: 2.1rem;
-      line-height: 0.9;
-      color: var(--ink);
-      letter-spacing: -0.02em;
-    }
-    .problem__frac {
-      font-family: var(--mono);
-      font-size: 0.72rem;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: var(--muted);
-    }
-
-    .problem__name {
-      font-family: var(--sans);
-      font-weight: 400;
-      font-size: 1.15rem;
-      line-height: 1.2;
-      color: var(--ink);
-      margin: 0 0 0.5rem;
-      letter-spacing: -0.008em;
-    }
-
-    .problem__quote {
-      font-family: var(--serif);
-      font-style: italic;
-      font-size: 0.98rem;
-      line-height: 1.4;
-      color: var(--ink-soft);
-      margin: 0 0 0.35rem;
-      padding: 0;
-      border: none;
-    }
-    .problem__quote::before { content: "\201C"; }
-    .problem__quote::after  { content: "\201D"; }
-
-    .problem__by {
-      font-family: var(--mono);
-      font-size: 0.75rem;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: var(--muted);
-      margin: 0;
-    }
-
-    .hypothesis {
-      font-family: var(--sans);
-      font-weight: 400;
-      font-size: clamp(1.1rem, 1.45vw, 1.35rem);
-      line-height: 1.28;
-      color: var(--ink);
-      margin: 0 0 1rem;
-      letter-spacing: -0.008em;
-    }
-    .hypothesis b {
-      font-family: var(--serif);
-      font-style: italic;
-      font-weight: 500;
-    }
-
-    .col__body {
-      font-family: var(--serif);
-      font-size: 1rem;
-      line-height: 1.5;
-      color: var(--ink-soft);
-      margin: 0 0 0.9rem;
-    }
-
-    .col__note {
-      font-family: var(--sans);
-      font-size: 0.95rem;
-      line-height: 1.45;
-      color: var(--ink-soft);
-      margin: 0 0 1.25rem;
-      padding-left: 0.9rem;
-      border-left: 2px solid var(--rule);
-    }
-    .col__note b { font-weight: 500; color: var(--ink); }
-
-    .col__next {
-      margin-top: auto;
-      padding-top: 1rem;
-      border-top: 1px solid var(--rule-soft);
-      display: flex;
-      flex-direction: column;
-      gap: 0.3rem;
-    }
-    .col__next-label {
-      font-family: var(--mono);
-      font-size: 0.75rem;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      color: var(--muted);
-    }
-    .col__next-text {
-      font-family: var(--serif);
-      font-style: italic;
-      font-size: 1rem;
-      color: var(--ink);
-      line-height: 1.4;
-    }
-
-    .reasons { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; flex: 1; }
-    .reasons li {
-      padding: 0.9rem 0;
-      border-bottom: 1px solid var(--rule-faint);
-      flex: 1;
-    }
-    .reasons li:last-child { border-bottom: none; }
-
-    .reasons__num { font-family: var(--serif); font-style: italic; font-size: 1.4rem; color: var(--ink); line-height: 1; }
-    .reasons__text h4 {
-      margin: 0 0 0.25rem;
-      font-family: var(--sans);
-      font-weight: 400;
-      font-size: 1.05rem;
-      color: var(--ink);
-      letter-spacing: -0.008em;
-    }
-    .reasons__text p {
-      margin: 0 0 0.3rem;
-      font-family: var(--serif);
-      font-size: 0.98rem;
-      line-height: 1.4;
-      color: var(--ink-soft);
-    }
-    .reasons__src {
-      font-family: var(--mono);
-      font-size: 0.75rem;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: var(--muted);
-    }
-
-
-    /* ══════════════════════════════════════════════════════════ */
-    /*             SLIDE 03 — VALIDATION                          */
-    /* ══════════════════════════════════════════════════════════ */
-    .s03__body {
-      margin-top: 2.5rem;
-      flex: 1;
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 3rem;
-      min-height: 0;
-    }
-
-    .track {
-      padding-top: 1.25rem;
-      border-top: 1px solid var(--rule);
-      display: flex;
-      flex-direction: column;
-    }
-
-    .track__figure {
-      display: flex;
-      align-items: baseline;
-      gap: 1rem;
-      margin: 0 0 1.75rem;
-    }
-
-    .track__number {
-      font-family: var(--sans);
-      font-weight: 300;
-      font-size: clamp(5rem, 10vw, 8.5rem);
-      line-height: 0.85;
-      letter-spacing: -0.04em;
-      color: var(--ink);
-    }
-
-    .track__unit {
-      font-family: var(--serif);
-      font-style: italic;
-      font-weight: 400;
-      font-size: clamp(1.2rem, 1.8vw, 1.7rem);
-      line-height: 1;
-      color: var(--ink-soft);
-    }
-
-    .track__desc {
-      font-family: var(--serif);
-      font-size: 1rem;
-      line-height: 1.55;
-      color: var(--ink);
-      margin: 0 0 1rem;
-      max-width: 36ch;
-    }
-
-    .track__detail {
-      font-family: var(--sans);
-      font-size: 1rem;
-      line-height: 1.45;
-      color: var(--ink-soft);
-      margin: 0;
-      max-width: 38ch;
-    }
-
-    .track__desc a {
-      color: inherit;
-      text-decoration: underline;
-      text-decoration-thickness: 1px;
-      text-underline-offset: 3px;
-      text-decoration-color: var(--muted);
-      transition: text-decoration-color 0.2s ease;
-    }
-    .track__desc a:hover { text-decoration-color: var(--ink); }
-
-
-    /* ══════════════════════════════════════════════════════════ */
-    /*          SLIDE 04 — FUNNEL · NOW vs FUTURE                 */
-    /* ══════════════════════════════════════════════════════════ */
-    .s04__body {
-      margin-top: 2rem;
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      gap: 2rem;
-      min-height: 0;
-    }
-
-    .funnel-section {
-      padding-top: 1.25rem;
-      border-top: 1px solid var(--rule);
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      min-height: 0;
-    }
-
-    .funnel-section__head {
-      display: flex;
-      align-items: baseline;
-      gap: 1.5rem;
-      margin-bottom: 1.5rem;
-    }
-
-    .funnel-section__label {
-      font-family: var(--mono);
-      font-weight: 500;
-      font-size: 0.85rem;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      color: var(--ink);
-    }
-
-    .funnel-row {
-      display: grid;
-      grid-template-columns: 110px 1fr;
-      gap: 1.25rem;
-      align-items: center;
-      margin-bottom: 0.9rem;
-    }
-    .funnel-row:last-child { margin-bottom: 0; }
-
-    .funnel-row__tag {
-      font-family: var(--mono);
-      font-size: 0.8rem;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: var(--muted);
-    }
-    .funnel-row__tag b { color: var(--ink); font-weight: 500; }
-
-    .funnel {
-      display: flex;
-      align-items: center;
-      gap: 0.55rem;
-      flex-wrap: wrap;
-    }
-
-    .stage {
-      padding: 0.7rem 1rem;
-      border: 1px solid var(--rule);
-      background: var(--paper-soft);
-      font-family: var(--sans);
-      font-size: 0.95rem;
-      font-weight: 400;
-      color: var(--ink);
-      letter-spacing: -0.005em;
-      white-space: nowrap;
-    }
-
-    .stage--long { white-space: normal; }
-
-    .stage--bold {
-      background: var(--ink);
-      color: var(--paper);
-      border-color: var(--ink);
-      font-weight: 500;
-    }
-
-    .arrow {
-      font-family: var(--mono);
-      color: var(--muted);
-      font-size: 0.9rem;
-    }
-
-
-    /* ══════════════════════════════════════════════════════════ */
-    /*          SLIDE 05 — CREATIVE · FUNNEL · RESULTS            */
-    /* ══════════════════════════════════════════════════════════ */
-    .s05__body {
-      margin-top: 2rem;
-      flex: 1;
-      display: grid;
-      grid-template-columns: 0.95fr 1.25fr;
-      gap: 2.5rem;
-      min-height: 0;
-    }
-
-    .creative {
-      display: flex;
-      flex-direction: column;
-      padding-top: 1.25rem;
-      border-top: 1px solid var(--rule);
-    }
-
-    .creative__tag {
-      font-family: var(--mono);
-      font-size: 0.8rem;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      color: var(--muted);
-      margin: 0 0 0.75rem;
-    }
-    .creative__tag b { color: var(--ink); font-weight: 500; }
-
-    .creative__name {
-      font-family: var(--sans);
-      font-weight: 400;
-      font-size: 1.5rem;
-      letter-spacing: -0.012em;
-      color: var(--ink);
-      margin: 0 0 1rem;
-    }
-
-    .creative__visual {
-      background: var(--ink);
-      aspect-ratio: 16 / 9;
-      position: relative;
-      overflow: hidden;
-      margin-bottom: 1rem;
-    }
-
-    .creative__visual svg {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-    }
-
-    .creative__video {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      object-fit: contain;
-      display: block;
-      background: var(--ink);
-    }
-
-    .creative__visual-label {
-      position: absolute;
-      left: 14px;
-      bottom: 10px;
-      font-family: var(--mono);
-      font-size: 0.72rem;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: var(--paper-deep);
-      z-index: 2;
-    }
-
-    .creative__hook {
-      font-family: var(--serif);
-      font-style: italic;
-      font-size: 1.08rem;
-      line-height: 1.4;
-      color: var(--ink);
-      margin: 0 0 0.5rem;
-    }
-    .creative__hook::before { content: "\201C"; }
-    .creative__hook::after  { content: "\201D"; }
-
-    .creative__headline {
-      font-family: var(--sans);
-      font-weight: 400;
-      font-size: 0.95rem;
-      color: var(--ink-soft);
-      margin: 0 0 1rem;
-    }
-
-    .insight {
-      margin-top: auto;
-      padding: 0.9rem 1rem;
-      background: var(--paper-soft);
-      border-left: 2px solid var(--ink);
-    }
-    .insight__label {
-      font-family: var(--mono);
-      font-size: 0.75rem;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      color: var(--muted);
-      margin: 0 0 0.35rem;
-    }
-    .insight__text {
-      font-family: var(--sans);
-      font-size: 1.02rem;
-      line-height: 1.4;
-      color: var(--ink);
-      margin: 0;
-      letter-spacing: -0.005em;
-    }
-    .insight__text b {
-      font-family: var(--serif);
-      font-style: italic;
-      font-weight: 500;
-    }
-
-    .metrics-wrap {
-      display: flex;
-      flex-direction: column;
-      padding-top: 1.25rem;
-      border-top: 1px solid var(--rule);
-      min-height: 0;
-    }
-
-    .metrics-head {
-      font-family: var(--mono);
-      font-size: 0.8rem;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      color: var(--muted);
-      margin: 0 0 1rem;
-      display: flex;
-      justify-content: space-between;
-    }
-    .metrics-head b { color: var(--ink); font-weight: 500; }
-
-    table.metrics {
-      width: 100%;
-      border-collapse: collapse;
-      font-family: var(--sans);
-      font-size: 0.95rem;
-    }
-    .metrics th, .metrics td {
-      text-align: left;
-      padding: 0.55rem 0.5rem 0.55rem 0;
-      border-bottom: 1px solid var(--rule-faint);
-      vertical-align: baseline;
-    }
-    .metrics th {
-      font-family: var(--mono);
-      font-weight: 400;
-      font-size: 0.75rem;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: var(--muted);
-      padding-bottom: 0.4rem;
-    }
-    .metrics td.val {
-      font-family: var(--mono);
-      color: var(--ink);
-      font-weight: 500;
-    }
-    .metrics td.bench { color: var(--muted); font-family: var(--mono); font-size: 0.88rem; }
-
-    .chip {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.4rem;
-      font-family: var(--mono);
-      font-size: 0.78rem;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-    }
-    .chip::before {
-      content: "";
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: currentColor;
-    }
-    .chip--ok    { color: var(--ink-soft); }
-    .chip--warn  { color: var(--warn); }
-    .chip--alert { color: var(--alert); }
-
-    .breakdown { margin-top: 1.25rem; }
-    .breakdown-label {
-      font-family: var(--mono);
-      font-size: 0.8rem;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      color: var(--muted);
-      margin: 0 0 0.6rem;
-    }
-
-    table.breakdown-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-family: var(--sans);
-      font-size: 0.92rem;
-    }
-    .breakdown-table th, .breakdown-table td {
-      text-align: left;
-      padding: 0.45rem 0.5rem 0.45rem 0;
-      border-bottom: 1px solid var(--rule-faint);
-    }
-    .breakdown-table th {
-      font-family: var(--mono);
-      font-size: 0.72rem;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: var(--muted);
-      font-weight: 400;
-    }
-    .breakdown-table tr.winner td { font-weight: 500; color: var(--ink); }
-    .breakdown-table td.num {
-      font-family: var(--mono);
-      text-align: right;
-    }
-
-    .honest-note {
-      margin-top: 1rem;
-      padding: 0.75rem 0.9rem;
-      background: var(--paper-soft);
-      font-family: var(--serif);
-      font-style: italic;
-      font-size: 0.95rem;
-      line-height: 1.4;
-      color: var(--ink-soft);
-      border-left: 2px solid var(--muted);
-    }
-    .honest-note b {
-      font-family: var(--sans);
-      font-style: normal;
-      font-weight: 500;
-      color: var(--ink);
-    }
-
-
-    /* ══════════════════════════════════════════════════════════ */
-    /*        SLIDE 06 — SOLUTION · SMART COMPLETION              */
-    /* ══════════════════════════════════════════════════════════ */
-    .s06__thesis {
-      margin-top: 2rem;
-      padding: 1.5rem 1.75rem;
-      background: var(--paper-soft);
-      border-left: 3px solid var(--ink);
-      font-family: var(--serif);
-      font-style: italic;
-      font-size: clamp(1.15rem, 1.6vw, 1.4rem);
-      line-height: 1.4;
-      color: var(--ink);
-      max-width: 72ch;
-    }
-    .s06__thesis::before { content: "\00AB"; margin-right: 0.1em; }
-    .s06__thesis::after  { content: "\00BB"; margin-left: 0.1em; }
-
-    .s06__body {
-      margin-top: 2rem;
-      flex: 1;
-      display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
-      gap: 1.25rem;
-      min-height: 0;
-    }
-
-    .approach {
-      padding: 1.25rem 1.25rem;
-      border: 1px solid var(--rule);
-      display: flex;
-      flex-direction: column;
-      min-width: 0;
-    }
-
-    .approach--winner {
-      background: var(--ink);
-      color: var(--paper);
-      border-color: var(--ink);
-    }
-
-    .approach__tag {
-      font-family: var(--mono);
-      font-size: 0.78rem;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: var(--muted);
-      margin: 0 0 0.6rem;
-    }
-    .approach--winner .approach__tag { color: var(--paper-deep); }
-
-    .approach__name {
-      font-family: var(--sans);
-      font-weight: 400;
-      font-size: 1.3rem;
-      letter-spacing: -0.012em;
-      margin: 0 0 0.35rem;
-    }
-
-    .approach__mode {
-      font-family: var(--serif);
-      font-style: italic;
-      font-size: 1rem;
-      color: var(--ink-soft);
-      margin: 0 0 1rem;
-    }
-    .approach--winner .approach__mode { color: var(--paper-deep); }
-
-    .approach__problem {
-      margin-top: auto;
-      padding-top: 1rem;
-      border-top: 1px solid var(--rule-soft);
-      font-family: var(--sans);
-      font-size: 0.98rem;
-      line-height: 1.45;
-      color: var(--ink-soft);
-    }
-    .approach--winner .approach__problem {
-      color: var(--paper);
-      border-top-color: rgba(232, 225, 206, 0.2);
-    }
-
-
-    /* ══════════════════════════════════════════════════════════ */
-    /*                SLIDE 07 — DEMO (placeholder visual)        */
-    /* ══════════════════════════════════════════════════════════ */
-    .s07__visual-wrap {
-      flex: 1;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 0;
-      padding: 1rem 0;
-    }
-
-    .demo-visual {
-      display: flex;
-      align-items: center;
-      gap: 1.5rem;
-      max-width: 100%;
-    }
-
-    .demo-visual svg {
-      height: clamp(360px, 60vh, 480px);
-      width: auto;
-      display: block;
-      flex-shrink: 0;
-    }
-
-    /* Pulsing dot loader — minimalist demo placeholder */
-    .demo-loader {
-      width: 60px;
-      height: 60px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-      position: relative;
-    }
-
-    .demo-loader__dot {
-      position: relative;
-      display: block;
-      width: 18px;
-      height: 18px;
-      border-radius: 50%;
-      background: var(--ink);
-    }
-
-    .demo-loader__dot::before,
-    .demo-loader__dot::after {
-      content: "";
-      position: absolute;
-      inset: 0;
-      border-radius: 50%;
-      background: var(--ink);
-      opacity: 0.35;
-      animation: demoDotPulse 2.2s ease-out infinite;
-    }
-
-    .demo-loader__dot::after {
-      animation-delay: 1.1s;
-    }
-
-    @keyframes demoDotPulse {
-      0%   { transform: scale(1);   opacity: 0.35; }
-      80%  { transform: scale(6);   opacity: 0;    }
-      100% { transform: scale(6);   opacity: 0;    }
-    }
-
-    .demo-headline {
-      font-family: var(--sans);
-      font-weight: 300;
-      font-size: clamp(3.5rem, 7vw, 6rem);
-      line-height: 0.95;
-      letter-spacing: -0.03em;
-      color: var(--ink);
-      margin: 0;
-    }
-
-
-    /* ══════════════════════════════════════════════════════════ */
-    /*         SLIDE 08 — WHAT'S NEXT · MARKETING + MODEL         */
-    /* ══════════════════════════════════════════════════════════ */
-    .s08__body {
-      margin-top: 2rem;
-      flex: 1;
-      display: grid;
-      grid-template-columns: 0.9fr 1.1fr;
-      gap: 2.5rem;
-      min-height: 0;
-    }
-
-    .next-panel {
-      display: flex;
-      flex-direction: column;
-      padding-top: 1.25rem;
-      border-top: 1px solid var(--rule);
-      min-width: 0;
-    }
-
-    .next-panel__tag {
-      font-family: var(--mono);
-      font-size: 0.8rem;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      color: var(--muted);
-      margin: 0 0 1rem;
-    }
-    .next-panel__tag b { color: var(--ink); font-weight: 500; }
-
-    .targets { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.5rem; }
-    .targets li {
-      display: grid;
-      grid-template-columns: 1fr auto;
-      gap: 1rem;
-      padding: 0.7rem 0;
-      border-bottom: 1px solid var(--rule-faint);
-      align-items: baseline;
-    }
-    .targets li:last-child { border-bottom: none; }
-
-    .target__name {
-      font-family: var(--sans);
-      font-size: 1.02rem;
-      color: var(--ink);
-    }
-    .target__name small {
-      display: block;
-      font-family: var(--serif);
-      font-style: italic;
-      font-size: 0.92rem;
-      color: var(--ink-soft);
-      margin-top: 0.15rem;
-    }
-
-    .target__value {
-      font-family: var(--mono);
-      font-size: 0.95rem;
-      letter-spacing: 0.02em;
-      color: var(--ink);
-      text-align: right;
-      white-space: nowrap;
-    }
-    .target__value em {
-      font-style: normal;
-      color: var(--muted);
-    }
-
-    /* Marketing directions list — compact numbered */
-    .mkt-list {
-      list-style: none;
-      margin: 0;
-      padding: 0;
-      display: flex;
-      flex-direction: column;
-    }
-    .mkt-list li {
-      padding: 0.75rem 0;
-      border-bottom: 1px solid var(--rule-faint);
-      display: grid;
-      grid-template-columns: 2.4rem 1fr;
-      column-gap: 1rem;
-      align-items: baseline;
-    }
-    .mkt-list li:first-child { border-top: 1px solid var(--rule-faint); }
-
-    .mkt__num {
-      font-family: var(--mono);
-      font-size: 0.78rem;
-      letter-spacing: 0.12em;
-      color: var(--muted);
-      padding-top: 0.2rem;
-    }
-    .mkt__body { display: flex; flex-direction: column; gap: 0.2rem; min-width: 0; }
-    .mkt__name {
-      font-family: var(--sans);
-      font-weight: 500;
-      font-size: 1.02rem;
-      line-height: 1.2;
-      color: var(--ink);
-      letter-spacing: -0.008em;
-    }
-    .mkt__desc {
-      font-family: var(--serif);
-      font-style: italic;
-      font-size: 0.95rem;
-      line-height: 1.35;
-      color: var(--ink-soft);
-    }
-
-    .hero-stat {
-      display: flex;
-      align-items: baseline;
-      gap: 1rem;
-      margin-bottom: 1.25rem;
-      max-width: 100%;
-    }
-    .hero-stat__num {
-      font-family: var(--sans);
-      font-weight: 300;
-      font-size: clamp(3.5rem, 6vw, 5rem);
-      line-height: 0.85;
-      letter-spacing: -0.04em;
-      color: var(--ink);
-    }
-    .hero-stat__unit {
-      font-family: var(--serif);
-      font-style: italic;
-      font-size: clamp(1.05rem, 1.3vw, 1.25rem);
-      color: var(--ink-soft);
-      max-width: 18ch;
-      line-height: 1.3;
-    }
-
-    .evolution {
-      width: 100%;
-      border-collapse: collapse;
-      font-family: var(--sans);
-      font-size: 0.92rem;
-      margin-bottom: 1rem;
-      table-layout: fixed;
-    }
-    .evolution th {
-      font-family: var(--mono);
-      font-weight: 400;
-      font-size: 0.72rem;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: var(--muted);
-      text-align: left;
-      padding: 0 0.5rem 0.4rem 0;
-      border-bottom: 1px solid var(--rule);
-    }
-    .evolution th:not(:first-child) { text-align: right; }
-    .evolution td {
-      padding: 0.5rem 0.5rem 0.5rem 0;
-      border-bottom: 1px solid var(--rule-faint);
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .evolution td:not(:first-child) {
-      font-family: var(--mono);
-      text-align: right;
-    }
-    .evolution tr.current td { color: var(--ink); font-weight: 500; background: var(--paper-soft); }
-    .evolution tr.target td { color: var(--muted); }
-    .evolution tr.target td:first-child::after {
-      content: " · target";
-      font-family: var(--mono);
-      font-size: 0.7rem;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-    }
-
-    /* Single column for opt-steps */
-    .opt-steps {
-      list-style: none;
-      margin: 0;
-      padding: 0.75rem 0 0;
-      border-top: 1px solid var(--rule-soft);
-      display: flex;
-      flex-direction: column;
-      gap: 0.55rem;
-      font-family: var(--sans);
-      font-size: 0.98rem;
-      color: var(--ink-soft);
-    }
-    .opt-steps li {
-      display: grid;
-      grid-template-columns: auto 1fr;
-      gap: 0.65rem;
-      align-items: baseline;
-    }
-    .opt-steps__num {
-      font-family: var(--serif);
-      font-style: italic;
-      color: var(--ink);
-      min-width: 1.6ch;
-    }
-
-
-    /* ══════════════════════════════════════════════════════════ */
-    /*                SLIDE 09 — PRODUCT ROADMAP                  */
-    /* ══════════════════════════════════════════════════════════ */
-    .s09__summary {
-      margin-top: 1.25rem;
-      font-family: var(--sans);
-      font-weight: 400;
-      font-size: clamp(1.1rem, 1.4vw, 1.25rem);
-      line-height: 1.35;
-      color: var(--ink-soft);
-      max-width: 52ch;
-      letter-spacing: -0.008em;
-    }
-
-    .roadmap-list {
-      list-style: none;
-      margin: 2.25rem 0 0;
-      padding: 0;
-      display: flex;
-      flex-direction: column;
-      flex: 1;
-      min-height: 0;
-    }
-
-    .roadmap-list li {
-      flex: 1;
-      padding: 1.1rem 0;
-      border-top: 1px solid var(--rule);
-      display: grid;
-      grid-template-columns: auto 1fr auto;
-      column-gap: 1.75rem;
-      align-items: baseline;
-    }
-    .roadmap-list li:last-child { border-bottom: 1px solid var(--rule); }
-
-    .rm__num {
-      font-family: var(--serif);
-      font-style: italic;
-      font-size: clamp(2.5rem, 4vw, 3.5rem);
-      line-height: 0.9;
-      color: var(--ink);
-      min-width: 2.4ch;
-    }
-    .rm__body { display: flex; flex-direction: column; gap: 0.3rem; }
-    .rm__name {
-      font-family: var(--sans);
-      font-size: clamp(1.15rem, 1.6vw, 1.5rem);
-      line-height: 1.15;
-      color: var(--ink);
-      letter-spacing: -0.01em;
-    }
-    .rm__desc {
-      font-family: var(--serif);
-      font-style: italic;
-      font-size: 1.02rem;
-      line-height: 1.35;
-      color: var(--ink-soft);
-      max-width: 54ch;
-    }
-    .rm__when {
-      font-family: var(--mono);
-      font-size: 0.75rem;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      color: var(--muted);
-      text-align: right;
-      white-space: nowrap;
-    }
-
-
-    /* ══════════════════════════════════════════════════════════ */
-    /*           SLIDE 05B — JOURNEY MAP (user paths)             */
-    /* ══════════════════════════════════════════════════════════ */
-    .s05b__body {
-      margin-top: 2rem;
-      flex: 1;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 0;
-      padding: 0.5rem 0;
-    }
-
-    .journey-frame {
-      width: 100%;
-      height: 100%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: #FFFFFF;
-      border: 1px solid var(--rule);
-      padding: 1.25rem;
-      overflow: hidden;
-    }
-
-    .journey-frame img {
-      max-width: 100%;
-      max-height: 100%;
-      width: auto;
-      height: auto;
-      object-fit: contain;
-      display: block;
-    }
-
-
-    /* ══════════════════════════════════════════════════════════ */
-    /*                       RESPONSIVE                           */
-    /* ══════════════════════════════════════════════════════════ */
-    @media (max-width: 1200px) {
-      .s02__body { grid-template-columns: 1fr 1fr; gap: 2rem; }
-      .s02__body .col:nth-child(3) { grid-column: 1 / -1; }
-      .s05__body { grid-template-columns: 1fr; gap: 1.5rem; }
-      .s06__body { grid-template-columns: 1fr; }
-      .s08__body { grid-template-columns: 1fr; }
-      .demo-visual { gap: 2rem; }
-    }
-
-    @media (max-width: 1024px) {
-      html { scroll-snap-type: none; }
-      .slide { height: auto; min-height: 100vh; grid-template-columns: 64px 1fr; }
-      #slide-01 { grid-template-columns: 64px 1fr; }
-      .topbar { left: 64px; padding: 0 1.5rem; right: 1.5rem; }
-      .slide__main, .s01__content { padding: 1.5rem 1.5rem 2rem; }
-      .slide__head, .s01__inner { margin-top: 3rem; }
-      .agenda { grid-column: 1 / -1; padding: 0 1.5rem 2.5rem 1.5rem; margin-top: 0; }
-      .s02__body, .s03__body { grid-template-columns: 1fr; gap: 1.5rem; }
-      .deck-nav { right: 0.75rem; }
-      .demo-visual { flex-direction: column; gap: 1.5rem; }
-    }
-
-    @media (max-width: 640px) {
-      .title { font-size: 2.2rem !important; }
-      .track__number { font-size: 4.5rem; }
-      .hero-stat__num { font-size: 3.5rem; }
-      .deck-nav a { font-size: 0.6rem; }
-      .funnel-row { grid-template-columns: 1fr; gap: 0.5rem; }
-    }
-  </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Brick Builder — Prototype</title>
+<script>
+  // Tailwind CDN emits a "should not be used in production" notice meant for
+  // real deployments. This is a single-file prototype, so we filter only that
+  // exact message — other warnings still surface normally.
+  (function () {
+    const _warn = console.warn;
+    console.warn = function (...args) {
+      const msg = args[0];
+      if (typeof msg === 'string' && msg.includes('cdn.tailwindcss.com should not be used in production')) return;
+      _warn.apply(console, args);
+    };
+  })();
+</script>
+<script src="https://cdn.tailwindcss.com"></script>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;450;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cream: #F8F3E8;
+    --cream-soft: #FBF7EE;
+    --cream-hover: #F4EEDE;
+    --ink: #0A0A0A;
+    --ink-soft: #1A1A1A;
+    --line: #ECECEC;
+    --line-strong: #DCDCDC;
+    --muted: #8A8A8A;
+    --muted-soft: #AFAFAF;
+    --bg-page: #EDEDED;
+    --green-soft: #E6F4EA;
+    --green-text: #2E7D4F;
+    --red-soft: #FCE4E6;
+    --red-text: #B53341;
+    --blue-soft: #E4ECF6;
+    --blue-text: #2D5BA1;
+  }
+  html, body, #root { height: 100%; }
+  body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    background: var(--bg-page);
+    color: var(--ink);
+    font-feature-settings: "ss01", "cv11";
+    letter-spacing: -0.005em;
+  }
+  /* Tailwind doesn't know our cream — provide utility classes */
+  .bg-cream { background: var(--cream); }
+  .bg-cream-soft { background: var(--cream-soft); }
+  .bg-cream-hover { background: var(--cream-hover); }
+  .text-ink { color: var(--ink); }
+  .text-muted { color: var(--muted); }
+  .text-muted-soft { color: var(--muted-soft); }
+  .bg-ink { background-color: var(--ink); }
+  .bg-ink-soft { background-color: var(--ink-soft); }
+  .border-line { border-color: var(--line); }
+  .border-line-strong { border-color: var(--line-strong); }
+  .placeholder-muted-soft::placeholder { color: var(--muted-soft); }
+  .hover\:bg-ink-soft:hover { background-color: var(--ink-soft); }
+  .hover\:bg-cream-soft:hover { background-color: var(--cream-soft); }
+  .hover\:bg-cream:hover { background-color: var(--cream); }
+  .hover\:text-ink:hover { color: var(--ink); }
+  .ring-ink { box-shadow: 0 0 0 1.5px var(--ink) inset; }
+  .ring-ink-soft { box-shadow: 0 0 0 1px var(--line-strong) inset; }
+
+  /* Subtle shadows */
+  .shadow-pop {
+    box-shadow:
+      0 1px 2px rgba(0,0,0,0.04),
+      0 8px 24px rgba(0,0,0,0.08),
+      0 0 0 1px rgba(0,0,0,0.04);
+  }
+  .shadow-card {
+    box-shadow: 0 0 0 1px var(--line);
+  }
+  .shadow-modal {
+    box-shadow:
+      0 10px 30px rgba(0,0,0,0.12),
+      0 2px 6px rgba(0,0,0,0.06),
+      0 0 0 1px rgba(0,0,0,0.05);
+  }
+  .shadow-toast {
+    box-shadow:
+      0 8px 24px rgba(0,0,0,0.18),
+      0 2px 8px rgba(0,0,0,0.10);
+  }
+
+  /* Animations */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes scaleIn {
+    from { opacity: 0; transform: scale(0.97); }
+    to { opacity: 1; transform: scale(1); }
+  }
+  @keyframes slideUp {
+    from { opacity: 0; transform: translate(-50%, 20px); }
+    to { opacity: 1; transform: translate(-50%, 0); }
+  }
+  .animate-fade-up { animation: fadeUp 220ms ease-out both; }
+  .animate-fade-in { animation: fadeIn 180ms ease-out both; }
+  .animate-scale-in { animation: scaleIn 180ms ease-out both; }
+  .animate-slide-up { animation: slideUp 260ms cubic-bezier(0.2,0.7,0.2,1) both; }
+
+  /* Disable Tailwind's default focus rings, use ours */
+  button, input, textarea { outline: none; }
+  input:focus, textarea:focus {
+    box-shadow: 0 0 0 1.5px var(--ink) inset;
+    border-color: transparent !important;
+  }
+  /* Custom scrollbar inside menus */
+  .menu-scroll::-webkit-scrollbar { width: 6px; }
+  .menu-scroll::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 3px; }
+
+  /* Hide root scrollbar to avoid flicker */
+  body { overflow: hidden; }
+</style>
 </head>
 <body>
+<div id="root"></div>
 
-  <!-- ═════════════════════ Deck Navigation ═════════════════════ -->
-  <nav class="deck-nav" aria-label="Слайды">
-    <a href="#slide-01" data-slide="01">01</a>
-    <a href="#slide-02" data-slide="02">02</a>
-    <a href="#slide-03" data-slide="03">03</a>
-    <a href="#slide-04" data-slide="04">04</a>
-    <a href="#slide-05" data-slide="05">05</a>
-    <a href="#slide-05b" data-slide="06">06</a>
-    <a href="#slide-06" data-slide="07">07</a>
-    <a href="#slide-07" data-slide="08">08</a>
-    <a href="#slide-08" data-slide="09">09</a>
-    <a href="#slide-09" data-slide="10">10</a>
-  </nav>
+<script type="text/babel" data-presets="react">
+const { useState, useEffect, useRef, useMemo, useCallback } = React;
 
+/* ──────────────────────────────────────────────────────────────────
+   ICONS
+   Hand-drawn-feel line icons matching the screenshots (1.5–2 stroke).
+   ────────────────────────────────────────────────────────────────── */
+const Ic = {
+  today: (p) => (
+    <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3.5" y="3.5" width="17" height="17" rx="3" />
+      <path d="M9 15l6-6M9 9h6v6" />
+    </svg>
+  ),
+  jobs: (p) => (
+    <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z" />
+    </svg>
+  ),
+  invoices: (p) => (
+    <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M6 3h9l4 4v14a0 0 0 0 1 0 0H6a0 0 0 0 1 0 0V3z" />
+      <path d="M14 3v5h5M9 12h6M9 16h6" />
+    </svg>
+  ),
+  estimates: (p) => (
+    <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M6 3h9l4 4v14H6V3z" />
+      <path d="M14 3v5h5M9 13l2 2 4-4" />
+    </svg>
+  ),
+  clients: (p) => (
+    <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="9" cy="8" r="3.2" />
+      <path d="M3.5 19c.7-3 3-4.5 5.5-4.5S13.8 16 14.5 19" />
+      <circle cx="16.5" cy="9" r="2.6" />
+      <path d="M14.8 13.6c1-.4 2-.5 3-.3 1.6.2 2.7 1.2 3.2 2.7" />
+    </svg>
+  ),
+  priceBook: (p) => (
+    <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 4h6c1.5 0 2.5 1 2.5 2.5V20c0-1-1-1.8-2.5-1.8H4V4z" />
+      <path d="M20 4h-6c-1.5 0-2.5 1-2.5 2.5V20c0-1 1-1.8 2.5-1.8h6V4z" />
+    </svg>
+  ),
+  crew: (p) => (
+    <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="8.5" cy="8" r="3" />
+      <circle cx="16" cy="9" r="2.4" />
+      <path d="M3 19c.6-2.7 2.7-4.2 5.5-4.2S13.4 16.3 14 19" />
+      <path d="M14.6 13.6c.7-.4 1.5-.5 2.4-.4 2 .2 3.4 1.4 4 3.4" />
+    </svg>
+  ),
+  settings: (p) => (
+    <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 12.9c.05-.3.1-.6.1-.9s-.05-.6-.1-.9l2-1.6-2-3.5-2.4 1c-.5-.4-1-.7-1.6-.9L15 3h-4l-.4 2.1c-.6.2-1.1.5-1.6.9l-2.4-1-2 3.5 2 1.6c-.05.3-.1.6-.1.9s.05.6.1.9l-2 1.6 2 3.5 2.4-1c.5.4 1 .7 1.6.9L11 21h4l.4-2.1c.6-.2 1.1-.5 1.6-.9l2.4 1 2-3.5-2-1.6z" />
+    </svg>
+  ),
+  support: (p) => (
+    <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 5h16v11H8l-4 4V5z" />
+    </svg>
+  ),
+  chevronDown: (p) => (
+    <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M6 9l6 6 6-6" />
+    </svg>
+  ),
+  chevronLeft: (p) => (
+    <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M15 6l-6 6 6 6" />
+    </svg>
+  ),
+  chevronRight: (p) => (
+    <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 6l6 6-6 6" />
+    </svg>
+  ),
+  arrowLeft: (p) => (
+    <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M19 12H5M12 5l-7 7 7 7" />
+    </svg>
+  ),
+  arrowRight: (p) => (
+    <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M5 12h14M12 5l7 7-7 7" />
+    </svg>
+  ),
+  search: (p) => (
+    <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="11" cy="11" r="6" />
+      <path d="M20 20l-4.4-4.4" />
+    </svg>
+  ),
+  close: (p) => (
+    <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M6 6l12 12M18 6L6 18" />
+    </svg>
+  ),
+  check: (p) => (
+    <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M5 12l5 5 9-10" />
+    </svg>
+  ),
+  plus: (p) => (
+    <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 5v14M5 12h14" />
+    </svg>
+  ),
+  user: (p) => (
+    <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="9" r="3.5" />
+      <circle cx="12" cy="12" r="9.2" />
+    </svg>
+  ),
+  userBadge: (p) => (
+    <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="9" r="3.2" />
+      <path d="M5.5 19c.7-3 3-4.5 6.5-4.5s5.8 1.5 6.5 4.5" />
+    </svg>
+  ),
+  link: (p) => (
+    <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1" />
+      <path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" />
+    </svg>
+  ),
+  reset: (p) => (
+    <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
+      <path d="M3 3v5h5" />
+    </svg>
+  ),
+};
 
-  <!-- ════════════════════════════════════════════════════════════ -->
-  <!--                SLIDE 01 — INTRO                              -->
-  <!-- ════════════════════════════════════════════════════════════ -->
-  <section class="slide s01" id="slide-01">
+/* ──────────────────────────────────────────────────────────────────
+   CONSTANTS
+   ────────────────────────────────────────────────────────────────── */
+const NAV_ITEMS = [
+  { id: 'today', label: 'Today', icon: 'today' },
+  { id: 'jobs', label: 'Jobs', icon: 'jobs' },
+  { id: 'invoices', label: 'Invoices', icon: 'invoices' },
+  { id: 'estimates', label: 'Estimates', icon: 'estimates' },
+  { id: 'clients', label: 'Clients', icon: 'clients' },
+  { id: 'priceBook', label: 'Price book', icon: 'priceBook' },
+  { id: 'crew', label: 'Crew', icon: 'crew' },
+];
 
-    <aside class="sidebar">
-      <div class="monogram" aria-label="AI Estimates">
-        <span class="monogram__a">A</span>
-        <span class="monogram__i">i</span>
+const QUICK_PICKS = [
+  'AC tune-up',
+  'Heating repair',
+  'Filter replacement',
+  'Annual inspection',
+  'Duct cleaning',
+  'New installation',
+];
+
+const TIME_SLOTS = [
+  '8:00 AM','9:00 AM','10:00 AM','11:00 AM',
+  '12:00 PM','1:00 PM','2:00 PM','3:00 PM',
+  '4:00 PM','5:00 PM','6:00 PM','7:00 PM',
+  '8:00 PM',
+];
+
+const DEMO_CLIENTS = [
+  { id:'c1', name:'Alice Johnson', address:'422 Maple Ave', email:'alice@example.com', phone:'(415) 555-0182' },
+  { id:'c2', name:'Ben Thompson', address:'115 Oak Dr', jobs:2 },
+  { id:'c3', name:'Catherine Lee', address:'578 Pine Blvd', jobs:3 },
+  { id:'c4', name:'Daniel Smith', address:'789 Elm St' },
+  { id:'c5', name:'Emily Davis', address:'90 Cedar Way' },
+  { id:'c6', name:'Frank Wilson', address:'456 Birch Ct', jobs:2 },
+  { id:'c7', name:'Grace Martinez', address:'234 Willow Ln' },
+  { id:'c8', name:'Henry Brown', address:'111 Cherry Pl' },
+  { id:'c9', name:'Isabella Taylor', address:'876 Ash Rd' },
+  { id:'c10', name:'Jack White', address:'345 Beech Ter', jobs:1 },
+  { id:'c11', name:'Liam Harris', address:'667 Fir Ave' },
+];
+
+const DEMO_WORKERS = [
+  { id:'w1', name:'James Albright' },
+  { id:'w2', name:'Marcus Lee' },
+  { id:'w3', name:'Pamela Haight' },
+  { id:'w4', name:'Rachel Sinclair' },
+];
+
+const DEMO_JOBS = [
+  { id:'j1', time:'7:30 AM', title:'AC tune-up',           client:'Michael Johnson',  status:'scheduled',   assigneeId:'w-self', assigneeName:'Alex' },
+  { id:'j2', time:'8:00 AM', title:'Plumbing repair',       client:'Sarah Brown',      status:'in_progress', assigneeId:'w-sophie', assigneeName:'Sophie' },
+  { id:'j3', time:'8:30 AM', title:'Landscaping maintenance', client:'Kevin Smith',    status:'in_progress', assigneeId:'w-self', assigneeName:'Alex' },
+  { id:'j4', time:'9:00 AM', title:'Electrical inspection', client:'Laura Wilson',     status:'scheduled',   assigneeId:'w-mike', assigneeName:'Michael' },
+  { id:'j5', time:'9:25 AM', title:'Carpet cleaning',       client:'Brian Davis',      status:'scheduled',   assigneeId:'w-sophie', assigneeName:'Sophie' },
+  { id:'j6', time:'10:30 AM', title:'Pressure washing',     client:'Amanda Clark',     status:'scheduled',   assigneeId:null },
+  { id:'j7', time:'12:15 PM', title:'Pest control',         client:'Stephen Lewis',    status:'scheduled',   assigneeId:'w-self', assigneeName:'Alex' },
+  { id:'j8', time:'2:40 PM',  title:'Window cleaning',      client:'Karen Hall',       status:'scheduled',   assigneeId:'w-mike', assigneeName:'Michael' },
+  { id:'j9', time:'3:00 PM',  title:'Roof inspection',      client:'Daniel Young',     status:'scheduled',   assigneeId:'w-sophie', assigneeName:'Sophie' },
+  { id:'j10', time:'4:00 PM', title:'HVAC servicing',       client:'Michelle Allen',   status:'scheduled',   assigneeId:'w-self', assigneeName:'Alex' },
+  { id:'j11', time:'6:30 PM', title:'Siding repair',        client:'Paul Carter',      status:'scheduled',   assigneeId:null },
+];
+
+/* A compact preset that hits every status the system can show:
+   overdue (auto-derived), in_progress, done, scheduled+assigned, scheduled
+   unassigned, future-day, and unscheduled. */
+const DEMO_STATUS_JOBS = [
+  { time:'7:00 AM',  title:'AC tune-up',         client:'Anna Cole',      status:'scheduled',   assigneeId:'w-james',  assigneeName:'James Albright', _today:true },
+  { time:'8:00 AM',  title:'Pipe leak fix',      client:'Henry Park',     status:'in_progress', assigneeId:'w-marcus', assigneeName:'Marcus Lee',     _today:true },
+  { time:'8:30 AM',  title:'Filter swap',        client:'Iris Chen',      status:'done',        assigneeId:'w-pam',    assigneeName:'Pamela Haight',  _today:true },
+  { time:'10:00 AM', title:'Window cleaning',    client:'Owen Brooks',    status:'scheduled',   assigneeId:'w-rachel', assigneeName:'Rachel Sinclair',_today:true },
+  { time:'2:00 PM',  title:'Roof inspection',    client:'Mira Ortiz',     status:'scheduled',   assigneeId:null,                                       _today:true },
+  { time:'9:00 AM',  title:'Drywall patch',      client:'Lucas Brennan',  status:'scheduled',   assigneeId:'w-marcus', assigneeName:'Marcus Lee',     _tomorrow:true },
+  { time:'Unscheduled', title:'Estimate visit',  client:'Diego Reyes',    status:'scheduled',   assigneeId:null },
+];
+
+const DEMO_WORKERS_FULL = [
+  { id:'w-self', name:'Me' },
+  { id:'w-james', name:'James Albright' },
+  { id:'w-marcus', name:'Marcus Lee' },
+  { id:'w-pam',   name:'Pamela Haight' },
+  { id:'w-rachel',name:'Rachel Sinclair' },
+];
+
+/* Sort jobs by their time string */
+function timeKey(t) {
+  const m = t.match(/(\d+):(\d+)\s*(AM|PM)/i);
+  if (!m) return 0;
+  let h = parseInt(m[1], 10);
+  const mm = parseInt(m[2], 10);
+  const ap = m[3].toUpperCase();
+  if (ap === 'PM' && h !== 12) h += 12;
+  if (ap === 'AM' && h === 12) h = 0;
+  return h * 60 + mm;
+}
+
+/* Date helpers */
+function dateToISO(d) {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function todayISO() { return dateToISO(new Date()); }
+function tomorrowISO() {
+  const d = new Date(); d.setDate(d.getDate()+1); return dateToISO(d);
+}
+function friendlyDate(iso) {
+  if (!iso) return 'Unscheduled';
+  if (iso === todayISO()) return 'Today';
+  if (iso === tomorrowISO()) return 'Tomorrow';
+  const [y,m,day] = iso.split('-').map(Number);
+  const d = new Date(y, m-1, day);
+  const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  return `${dayNames[d.getDay()]}, ${monthNames[d.getMonth()]} ${day}`;
+}
+function compareJobs(a, b) {
+  const ad = a.dateISO || '\uffff'; // unscheduled go last
+  const bd = b.dateISO || '\uffff';
+  if (ad !== bd) return ad < bd ? -1 : 1;
+  return timeKey(a.time) - timeKey(b.time);
+}
+
+/* The "now" indicator on the timeline is fixed in this prototype so that the
+   demo state stays predictable. Auto-overdue derives from the same value. */
+const NOW_LABEL = '8:45 AM';
+const NOW_KEY = timeKey(NOW_LABEL);
+
+function parseLocalISO(iso) {
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+
+function effectiveStatus(job) {
+  if (job.status === 'done' || job.status === 'in_progress') return job.status;
+  if (job.status === 'overdue') return 'overdue';
+  if (!job.dateISO) return job.status; // unscheduled stays as-is
+  const t = todayISO();
+  if (job.dateISO < t) return 'overdue';
+  if (job.dateISO === t && timeKey(job.time) < NOW_KEY) return 'overdue';
+  return job.status;
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   APP ROOT
+   ────────────────────────────────────────────────────────────────── */
+function App() {
+  // Data
+  const [clients, setClients]   = useState([]);
+  const [workers, setWorkers]   = useState([]); // user's crew
+  const [jobs, setJobs]         = useState([]);
+
+  // UI
+  const [view, setView]         = useState('today');
+  const [modal, setModal]       = useState(null);  // see types below
+  const [toast, setToast]       = useState(null);
+  const [highlightJob, setHighlightJob] = useState(null);
+  const [emptyVariant, setEmptyVariant] = useState('original');
+
+  /* ── Schedule job flow ── */
+  const startScheduleJob = useCallback(() => {
+    if (clients.length === 0) {
+      setModal({ kind:'newClient', returnTo:'jobTitle' });
+    } else {
+      setModal({ kind:'pickClient' });
+    }
+  }, [clients.length]);
+
+  const handleClientCreated = (client) => {
+    setClients(prev => [...prev, client]);
+    if (modal?.returnTo === 'jobTitle') {
+      setModal({ kind:'jobTitle', client });
+    } else {
+      setModal(null);
+      pushToast('Client added');
+    }
+  };
+
+  const handleClientPicked = (client) => {
+    setModal({ kind:'jobTitle', client });
+  };
+
+  const handleJobTitleContinue = (title) => {
+    setModal({ kind:'when', client: modal.client, title });
+  };
+
+  const handleCreateJob = ({ time, dateISO, dateLabel }) => {
+    const newJob = {
+      id: `j_${Date.now()}`,
+      time,
+      dateISO,
+      dateLabel,
+      title: modal.title,
+      client: modal.client.name,
+      status: 'scheduled',
+      assigneeId: null,
+    };
+    setJobs(prev => [...prev, newJob].sort(compareJobs));
+    setModal(null);
+
+    const isToday = dateISO === todayISO();
+    const isUnscheduled = !dateISO;
+    let message;
+    let viewTarget;
+    if (isUnscheduled) {
+      message = 'Saved as unscheduled';
+      viewTarget = 'jobs';
+    } else if (isToday) {
+      message = 'Job created';
+      viewTarget = 'today';
+    } else {
+      message = `Scheduled for ${friendlyDate(dateISO)}`;
+      viewTarget = 'jobs';
+    }
+    pushToast(message, newJob.id, viewTarget);
+  };
+
+  /* ── Job mutation helpers ── */
+  const updateJob = (jobId, patch) => {
+    setJobs(prev => prev.map(j => j.id === jobId ? { ...j, ...patch } : j).sort(compareJobs));
+  };
+  const deleteJob = (jobId) => {
+    setJobs(prev => prev.filter(j => j.id !== jobId));
+  };
+  const handleReschedule = (jobId, { time, dateISO }) => {
+    updateJob(jobId, { time, dateISO });
+    setModal(null);
+    const message = !dateISO
+      ? 'Marked as unscheduled'
+      : dateISO === todayISO() ? 'Rescheduled to today' : `Rescheduled to ${friendlyDate(dateISO)}`;
+    const target = !dateISO ? 'jobs' : (dateISO === todayISO() ? 'today' : 'jobs');
+    pushToast(message, jobId, target);
+  };
+  const handleStatusChange = (jobId, status) => {
+    updateJob(jobId, { status });
+    setModal(null);
+    const labels = { done:'Marked as done', in_progress:'Marked in progress', scheduled:'Reopened' };
+    pushToast(labels[status] || 'Status updated', jobId);
+  };
+  const handleDeleteJob = (jobId) => {
+    deleteJob(jobId);
+    setModal(null);
+    pushToast('Job deleted');
+  };
+  const openJobDetail = (job) => setModal({ kind:'detail', jobId: job.id });
+
+  /* ── Toast ── */
+  const pushToast = (message, jobId=null, viewTarget=null) => {
+    setToast({ message, jobId, viewTarget, key: Date.now() });
+  };
+  // Auto-dismiss the latest toast
+  useEffect(() => {
+    if (!toast) return;
+    const id = setTimeout(() => setToast(null), 4200);
+    return () => clearTimeout(id);
+  }, [toast?.key]);
+
+  /* ── Demo controls ── */
+  const loadDemoData = () => {
+    const t = todayISO();
+    setClients(DEMO_CLIENTS);
+    setWorkers(DEMO_WORKERS_FULL);
+    setJobs(DEMO_JOBS.map(j => ({...j, dateISO: t})).sort(compareJobs));
+    setView('today');
+    setModal(null);
+    pushToast('Demo data loaded');
+  };
+  const loadStatusShowcase = () => {
+    const t = todayISO();
+    const tm = tomorrowISO();
+    const built = DEMO_STATUS_JOBS.map((j, i) => {
+      const dateISO = j._today ? t : (j._tomorrow ? tm : null);
+      const { _today, _tomorrow, ...rest } = j;
+      return { id: `s_${Date.now()}_${i}`, dateISO, ...rest };
+    });
+    setClients([]);
+    setWorkers(DEMO_WORKERS_FULL);
+    setJobs(built.sort(compareJobs));
+    setView('today');
+    setModal(null);
+    pushToast('Statuses showcase loaded');
+  };
+  const resetAll = () => {
+    setClients([]);
+    setWorkers([]);
+    setJobs([]);
+    setView('today');
+    setModal(null);
+    pushToast('Workspace reset');
+  };
+  const seedClients = () => {
+    setClients(DEMO_CLIENTS);
+    pushToast('Sample clients added');
+  };
+
+  /* ── Render ── */
+  return (
+    <div className="h-full w-full p-4 md:p-6 flex items-stretch justify-center" style={{background:'var(--bg-page)'}}>
+      <div className="w-full max-w-[1180px] h-full flex bg-white rounded-[14px] overflow-hidden" style={{boxShadow:'0 1px 0 rgba(0,0,0,0.04), 0 0 0 1px rgba(0,0,0,0.06)'}}>
+        <Sidebar view={view} setView={setView} hasJobs={jobs.length>0} />
+        <main className="flex-1 relative overflow-hidden">
+          {view === 'today' && (
+            <TodayView
+              jobs={jobs.filter(j => j.dateISO === todayISO())}
+              workers={workers}
+              setJobs={setJobs}
+              onSchedule={startScheduleJob}
+              onAddEstimate={() => pushToast('Estimates — coming soon')}
+              onOpenJob={openJobDetail}
+              highlightJob={highlightJob}
+              setHighlightJob={setHighlightJob}
+              setView={setView}
+              emptyVariant={emptyVariant}
+            />
+          )}
+          {view === 'jobs' && (
+            <JobsView
+              jobs={jobs}
+              workers={workers}
+              setJobs={setJobs}
+              onSchedule={startScheduleJob}
+              onOpenJob={openJobDetail}
+              highlightJob={highlightJob}
+              setView={setView}
+            />
+          )}
+          {view === 'crew' && (
+            <CrewView
+              workers={workers}
+              setWorkers={setWorkers}
+              setModal={setModal}
+              pushToast={pushToast}
+            />
+          )}
+          {view === 'clients' && (
+            <ClientsView clients={clients} onAdd={() => setModal({ kind:'newClient' })} />
+          )}
+          {(view === 'invoices' || view === 'estimates' || view === 'priceBook') && (
+            <PlaceholderView label={NAV_ITEMS.find(i=>i.id===view)?.label || ''} />
+          )}
+        </main>
       </div>
-    </aside>
 
-    <div class="topbar">
-      <div class="topbar__left">Smart Completion for Estimates</div>
-      <div class="topbar__right"><b>01</b> · intro</div>
-    </div>
-
-    <main class="s01__content">
-      <div class="s01__inner">
-        <h1 class="title">
-          AI-Эстимейты<br/>
-          в&nbsp;<em>Tofu&nbsp;FS&nbsp;iOS</em>
-        </h1>
-      </div>
-
-      <div class="slide__foot">
-        <span>April 2026</span>
-      </div>
-    </main>
-
-    <section class="agenda">
-      <p class="agenda__label">Сегодня покажем</p>
-
-      <ol class="agenda__list">
-        <li>
-          <span class="agenda__text">
-            <span class="agenda__name">Проблема</span>
-            <span class="agenda__desc">для кого она и почему мобилка</span>
-          </span>
-        </li>
-        <li>
-          <span class="agenda__text">
-            <span class="agenda__name">Валидация</span>
-            <span class="agenda__desc">33 интервью + первые цифры с рекламы</span>
-          </span>
-        </li>
-        <li>
-          <span class="agenda__text">
-            <span class="agenda__name">Решение</span>
-            <span class="agenda__desc">Smart Completion + живое демо</span>
-          </span>
-        </li>
-        <li>
-          <span class="agenda__text">
-            <span class="agenda__name">Что дальше</span>
-            <span class="agenda__desc">маркетинг, модель, продукт</span>
-          </span>
-        </li>
-      </ol>
-    </section>
-
-  </section>
-
-
-  <!-- ════════════════════════════════════════════════════════════ -->
-  <!--             SLIDE 02 — PROBLEM & AUDIENCE                    -->
-  <!-- ════════════════════════════════════════════════════════════ -->
-  <section class="slide s02" id="slide-02">
-
-    <aside class="sidebar">
-      <div class="monogram"><span class="monogram__a">A</span><span class="monogram__i">i</span></div>
-    </aside>
-
-    <div class="topbar">
-      <div class="topbar__left">Smart Completion for Estimates</div>
-      <div class="topbar__right"><b>02</b> · problem</div>
-    </div>
-
-    <main class="slide__main">
-      <header class="slide__head">
-        <h1 class="title title--md">
-          Проблема<br/>и&nbsp;<em>для кого</em>
-        </h1>
-      </header>
-
-      <div class="s02__body">
-
-        <!-- Col 1 · Three problems -->
-        <div class="col">
-          <p class="col__label">Три боли · 33 интервью</p>
-          <ol class="problems">
-            <li>
-              <div class="problem__head">
-                <span class="problem__stat">
-                  <span class="problem__pct">18%</span>
-                </span>
-              </div>
-              <h3 class="problem__name">Не уверены, что цена правильная</h3>
-              <p class="problem__quote">I give the estimate to ChatGPT… just to let me know if I'm in the sweet spot area.</p>
-            </li>
-            <li>
-              <div class="problem__head">
-                <span class="problem__stat">
-                  <span class="problem__pct">15%</span>
-                </span>
-              </div>
-              <h3 class="problem__name">Шаблонные цены ≠ рынок</h3>
-              <p class="problem__quote">It came in $1,200 higher… We called him back to knock off that much.</p>
-            </li>
-            <li>
-              <div class="problem__head">
-                <span class="problem__stat">
-                  <span class="problem__pct">12%</span>
-                </span>
-              </div>
-              <h3 class="problem__name">Эстимейты съедают часы</h3>
-              <p class="problem__quote">I absolutely despise estimating jobs. 10 hours a week I could save.</p>
-            </li>
-          </ol>
-        </div>
-
-        <!-- Col 2 · Для кого -->
-        <div class="col">
-          <p class="col__label">Для кого · гипотеза</p>
-
-          <p class="hypothesis">
-            Острее всего у <b>solo</b> и <b>начинающих</b> Пользователей
-          </p>
-
-          <p class="col__body">
-            У опытных команд уже есть свой прайсбук, который они актуализируют по индустрии. У solo, интуиция и неуверенность
-          </p>
-
-          <p class="col__note">
-            В нашей выборке из 33 интервью фокус был на командах и крупных, <b>18% это нижняя граница</b>. Реальная доля у solo может быть выше и надо убедиться, что у менеджеров с командой реально существует проблема
-          </p>
-        </div>
-
-        <!-- Col 3 · Почему мобилка -->
-        <div class="col">
-          <p class="col__label">Почему мобилка</p>
-          <ol class="reasons">
-            <li>
-              <div class="reasons__text">
-                <h4>Делается на месте</h4>
-                <p>15–30 минут от walk-through до старта работ</p>
-              </div>
-            </li>
-            <li>
-              <div class="reasons__text">
-                <h4>Фото проще с телефона</h4>
-                <p>Уже workflow: фоткает и отправляет в ChatGPT</p>
-              </div>
-            </li>
-            <li>
-              <div class="reasons__text">
-                <h4>Пользователи в поле</h4>
-                <p>Планшет на walk-through, не за компом</p>
-              </div>
-            </li>
-          </ol>
-        </div>
-
-      </div>
-    </main>
-
-  </section>
-
-
-  <!-- ════════════════════════════════════════════════════════════ -->
-  <!--             SLIDE 03 — VALIDATION                            -->
-  <!-- ════════════════════════════════════════════════════════════ -->
-  <section class="slide s03" id="slide-03">
-
-    <aside class="sidebar">
-      <div class="monogram"><span class="monogram__a">A</span><span class="monogram__i">i</span></div>
-    </aside>
-
-    <div class="topbar">
-      <div class="topbar__left">Smart Completion for Estimates</div>
-      <div class="topbar__right"><b>03</b> · validation</div>
-    </div>
-
-    <main class="slide__main">
-      <header class="slide__head">
-        <h1 class="title title--md">
-          Валидация<br/><em>проблемы</em>
-        </h1>
-      </header>
-
-      <div class="s03__body">
-
-        <div class="track">
-          <div class="track__figure">
-            <span class="track__number">33</span>
-            <span class="track__unit">интервью</span>
-          </div>
-
-          <p class="track__desc">
-            Depersonalised interviews. Транскрипты, дословные цитаты. Вытащили три топ-проблемы по частоте
-          </p>
-        </div>
-
-        <div class="track">
-          <div class="track__figure">
-            <span class="track__number">CR&nbsp;5%</span>
-          </div>
-
-          <p class="track__desc">
-            Запущены Meta Ads. 3 видео-креатива, <a href="https://tofu.com/product/ai-estimates" target="_blank" rel="noopener">лендинг</a>, email capture
-          </p>
-        </div>
-
-      </div>
-    </main>
-
-  </section>
-
-
-  <!-- ════════════════════════════════════════════════════════════ -->
-  <!--            SLIDE 04 — FUNNEL · NOW vs FUTURE                 -->
-  <!-- ════════════════════════════════════════════════════════════ -->
-  <section class="slide s04" id="slide-04">
-
-    <aside class="sidebar">
-      <div class="monogram"><span class="monogram__a">A</span><span class="monogram__i">i</span></div>
-    </aside>
-
-    <div class="topbar">
-      <div class="topbar__left">Smart Completion for Estimates</div>
-      <div class="topbar__right"><b>04</b> · funnel</div>
-    </div>
-
-    <main class="slide__main">
-      <header class="slide__head">
-        <h1 class="title title--md">
-          Реализация флоу:<br/>сейчас и&nbsp;<em>как будет</em>
-        </h1>
-      </header>
-
-      <div class="s04__body">
-
-        <!-- NOW -->
-        <div class="funnel-section">
-          <div class="funnel-section__head">
-            <span class="funnel-section__label">Сейчас · две независимые воронки</span>
-          </div>
-
-          <div class="funnel-row">
-            <span class="funnel-row__tag"><b>01</b> marketing</span>
-            <div class="funnel">
-              <div class="stage">Креатив</div>
-              <span class="arrow">→</span>
-              <div class="stage">Лендинг</div>
-              <span class="arrow">→</span>
-              <div class="stage">Email capture</div>
-            </div>
-          </div>
-
-          <div class="funnel-row">
-            <span class="funnel-row__tag"><b>02</b> product</span>
-            <div class="funnel">
-              <div class="stage stage--long">MVP в отдельном тестовом iOS app</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- FUTURE -->
-        <div class="funnel-section">
-          <div class="funnel-section__head">
-            <span class="funnel-section__label">Как будет · единая воронка</span>
-          </div>
-
-          <div class="funnel-row">
-            <span class="funnel-row__tag">single flow</span>
-            <div class="funnel">
-              <div class="stage">Креатив</div>
-              <span class="arrow">→</span>
-              <div class="stage">Лендинг</div>
-              <span class="arrow">→</span>
-              <div class="stage stage--bold">Install Tofu FS iOS</div>
-              <span class="arrow">→</span>
-              <div class="stage">Use AI-Estimates</div>
-            </div>
-          </div>
-        </div>
-
-      </div>
-    </main>
-
-  </section>
-
-
-  <!-- ════════════════════════════════════════════════════════════ -->
-  <!--         SLIDE 05 — CREATIVE · FUNNEL · RESULTS               -->
-  <!-- ════════════════════════════════════════════════════════════ -->
-  <section class="slide s05" id="slide-05">
-
-    <aside class="sidebar">
-      <div class="monogram"><span class="monogram__a">A</span><span class="monogram__i">i</span></div>
-    </aside>
-
-    <div class="topbar">
-      <div class="topbar__left">Smart Completion for Estimates</div>
-      <div class="topbar__right"><b>05</b> · results</div>
-    </div>
-
-    <main class="slide__main">
-      <header class="slide__head">
-        <h1 class="title title--md">
-          Что запустили<br/>и <em>что увидели</em>
-        </h1>
-      </header>
-
-      <div class="s05__body">
-
-        <!-- Creative column -->
-        <div class="creative">
-          <p class="creative__tag"><b>Победитель</b></p>
-          <h3 class="creative__name">Stair repair estimate using Invoice Maker</h3>
-
-          <div class="creative__visual" aria-hidden="true">
-            <video
-              class="creative__video"
-              src="creative.mp4"
-              autoplay
-              loop
-              muted
-              playsinline
-              preload="auto"
-            ></video>
-            <span class="creative__visual-label">Staircase · broken</span>
-          </div>
-        </div>
-
-        <!-- Metrics column -->
-        <div class="metrics-wrap">
-          <table class="metrics">
-            <thead>
-              <tr>
-                <th>Метрика</th>
-                <th>Факт</th>
-                <th>Бенчмарк</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr><td>Spent</td><td class="val">$213.11</td><td class="bench">—</td></tr>
-              <tr><td>Impressions</td><td class="val">11,750</td><td class="bench">—</td></tr>
-              <tr><td>Clicks</td><td class="val">134</td><td class="bench">—</td></tr>
-              <tr><td>CTR</td><td class="val">1.14%</td><td class="bench">0.9–1.5%</td></tr>
-              <tr><td>CPC</td><td class="val">$1.59</td><td class="bench">$1–2</td></tr>
-              <tr><td>Emails</td><td class="val">7</td><td class="bench">—</td></tr>
-              <tr><td>Click → Email</td><td class="val">5.2%</td><td class="bench">8–15%</td></tr>
-              <tr><td>CPL</td><td class="val">$30.44</td><td class="bench">$5–20</td></tr>
-            </tbody>
-          </table>
-
-          <div class="breakdown">
-            <p class="breakdown-label">Разбивка по креативам</p>
-            <table class="breakdown-table">
-              <thead>
-                <tr><th>Креатив</th><th style="text-align:right">Impr.</th><th style="text-align:right">CTR</th><th style="text-align:right">Emails</th></tr>
-              </thead>
-              <tbody>
-                <tr class="winner"><td>#2 · staircase</td><td class="num">10,495</td><td class="num">1.09%</td><td class="num">7</td></tr>
-                <tr><td>#1</td><td class="num">722</td><td class="num">1.66%</td><td class="num">0</td></tr>
-                <tr><td>#3</td><td class="num">220</td><td class="num">0.91%</td><td class="num">0</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-      </div>
-    </main>
-
-  </section>
-
-
-  <!-- ════════════════════════════════════════════════════════════ -->
-  <!--              SLIDE 05B — JOURNEY MAP · PATHS                 -->
-  <!-- ════════════════════════════════════════════════════════════ -->
-  <section class="slide s05b" id="slide-05b">
-
-    <aside class="sidebar">
-      <div class="monogram"><span class="monogram__a">A</span><span class="monogram__i">i</span></div>
-    </aside>
-
-    <div class="topbar">
-      <div class="topbar__left">Smart Completion for Estimates</div>
-      <div class="topbar__right"><b>06</b> · journey map</div>
-    </div>
-
-    <main class="slide__main">
-      <header class="slide__head">
-        <h1 class="title title--md">
-          Journey<br/><em>map</em>
-        </h1>
-      </header>
-
-      <div class="s05b__body">
-        <div class="journey-frame">
-          <img src="journey-map.png" alt="User journey map — пути пользователей от Page Viewed до webflow_form_submitted" />
-        </div>
-      </div>
-    </main>
-
-  </section>
-
-
-  <!-- ════════════════════════════════════════════════════════════ -->
-  <!--         SLIDE 06 — SOLUTION · SMART COMPLETION               -->
-  <!-- ════════════════════════════════════════════════════════════ -->
-  <section class="slide s06" id="slide-06">
-
-    <aside class="sidebar">
-      <div class="monogram"><span class="monogram__a">A</span><span class="monogram__i">i</span></div>
-    </aside>
-
-    <div class="topbar">
-      <div class="topbar__left">Smart Completion for Estimates</div>
-      <div class="topbar__right"><b>07</b> · solution</div>
-    </div>
-
-    <main class="slide__main">
-      <header class="slide__head">
-        <h1 class="title title--md">
-          Smart<br/><em>Completion</em>
-        </h1>
-      </header>
-
-      <p class="s06__thesis">
-        Пользователь собирает estimate как обычно. Мы подсказываем, где цена отличается от рынка и какие позиции обычно есть у соседей, но нет у него
-      </p>
-
-      <div class="s06__body">
-
-        <div class="approach">
-          <p class="approach__tag">Подход A</p>
-          <h3 class="approach__name">Generator</h3>
-          <p class="approach__mode">AI делает за тебя</p>
-          <p class="approach__problem">
-            AI cringe у blue-collar. Пользователь теряет контроль и ownership над сметой
-          </p>
-        </div>
-
-        <div class="approach">
-          <p class="approach__tag">Подход B</p>
-          <h3 class="approach__name">Price sanity-check</h3>
-          <p class="approach__mode">Проверка в самом конце</p>
-          <p class="approach__problem">
-            Срабатывает на финальном шаге. Пользователю нужно переделывать с нуля и думать, для каких айтемов менять цену
-          </p>
-        </div>
-
-        <div class="approach approach--winner">
-          <p class="approach__tag">Наш путь</p>
-          <h3 class="approach__name">Smart completion</h3>
-          <p class="approach__mode">Подсказки в процессе · like spellcheck</p>
-          <p class="approach__problem">
-            Пользователь ведёт, AI подсказывает. Контроль у юзера, AI добавляет рыночный контекст
-          </p>
-        </div>
-
-      </div>
-    </main>
-
-  </section>
-
-
-  <!-- ════════════════════════════════════════════════════════════ -->
-  <!--                  SLIDE 07 — DEMO                             -->
-  <!-- ════════════════════════════════════════════════════════════ -->
-  <section class="slide s07" id="slide-07">
-
-    <aside class="sidebar">
-      <div class="monogram"><span class="monogram__a">A</span><span class="monogram__i">i</span></div>
-    </aside>
-
-    <div class="topbar">
-      <div class="topbar__left">Smart Completion for Estimates</div>
-      <div class="topbar__right"><b>08</b> · demo</div>
-    </div>
-
-    <main class="slide__main">
-      <div class="s07__visual-wrap">
-        <div class="demo-visual">
-
-          <!-- Minimalist loader · pulsing dot -->
-          <div class="demo-loader" aria-hidden="true">
-            <span class="demo-loader__dot"></span>
-          </div>
-
-          <!-- Big headline -->
-          <p class="demo-headline">Live demo</p>
-
-        </div>
-      </div>
-    </main>
-
-  </section>
-
-
-  <!-- ════════════════════════════════════════════════════════════ -->
-  <!--         SLIDE 08 — WHAT'S NEXT · MARKETING + MODEL           -->
-  <!-- ════════════════════════════════════════════════════════════ -->
-  <section class="slide s08" id="slide-08">
-
-    <aside class="sidebar">
-      <div class="monogram"><span class="monogram__a">A</span><span class="monogram__i">i</span></div>
-    </aside>
-
-    <div class="topbar">
-      <div class="topbar__left">Smart Completion for Estimates</div>
-      <div class="topbar__right"><b>09</b> · what's next</div>
-    </div>
-
-    <main class="slide__main">
-      <header class="slide__head">
-        <h1 class="title title--md">
-          Что дальше:<br/><em>маркетинг + модель</em>
-        </h1>
-      </header>
-
-      <div class="s08__body">
-
-        <!-- Marketing -->
-        <div class="next-panel">
-          <p class="next-panel__tag">marketing</p>
-
-          <ul class="mkt-list">
-            <li>
-              <span class="mkt__num">01</span>
-              <span class="mkt__body">
-                <span class="mkt__name">Positioning</span>
-                <span class="mkt__desc">AI Estimates как главный дифференциатор от Jobber / HCP / Workiz</span>
-              </span>
-            </li>
-            <li>
-              <span class="mkt__num">02</span>
-              <span class="mkt__body">
-                <span class="mkt__name">Content + SEO</span>
-                <span class="mkt__desc">Контент-кластер вокруг pricing: «how to price [trade] jobs», «estimate templates»</span>
-              </span>
-            </li>
-            <li>
-              <span class="mkt__num">03</span>
-              <span class="mkt__body">
-                <span class="mkt__name">Paid acquisition</span>
-                <span class="mkt__desc">Масштабировать staircase-креатив. Тестировать новые</span>
-              </span>
-            </li>
-            <li>
-              <span class="mkt__num">04</span>
-              <span class="mkt__body">
-                <span class="mkt__name">Social proof</span>
-                <span class="mkt__desc">Видео-отзывы от первых юзеров: «40 minutes → 30 seconds»</span>
-              </span>
-            </li>
-            <li>
-              <span class="mkt__num">05</span>
-              <span class="mkt__body">
-                <span class="mkt__name">Partnerships</span>
-                <span class="mkt__desc">Trade associations, influencers, contractor YouTubers, подкасты</span>
-              </span>
-            </li>
-            <li>
-              <span class="mkt__num">06</span>
-              <span class="mkt__body">
-                <span class="mkt__name">App Store Optimization</span>
-                <span class="mkt__desc">AI Estimates упоминать в заголовке и описании приложения</span>
-              </span>
-            </li>
-          </ul>
-        </div>
-
-        <!-- Model -->
-        <div class="next-panel">
-          <p class="next-panel__tag">model optimization</p>
-
-          <div class="hero-stat">
-            <span class="hero-stat__num">−84%</span>
-            <span class="hero-stat__unit">cost per request,<br/>уже сделано за хакатон</span>
-          </div>
-
-          <table class="evolution">
-            <thead>
-              <tr>
-                <th>Этап</th>
-                <th>Cost</th>
-                <th>Latency</th>
-                <th>Input tokens</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr><td>Start · Gemini 2.5 Flash</td><td>$0.137</td><td>6.57s</td><td>453,000</td></tr>
-              <tr><td>Switch · Claude Haiku 4.5</td><td>$0.032</td><td>1.69s</td><td>16,791</td></tr>
-              <tr class="current"><td>Now · optimized output</td><td>$0.022</td><td>~1.5s</td><td>17,391</td></tr>
-              <tr class="target"><td>After retrieval</td><td>~$0.002</td><td>&lt;1s</td><td>~1,800</td></tr>
-            </tbody>
-          </table>
-        </div>
-
-      </div>
-    </main>
-
-  </section>
-
-
-  <!-- ════════════════════════════════════════════════════════════ -->
-  <!--            SLIDE 09 — WHAT'S NEXT · PRODUCT                  -->
-  <!-- ════════════════════════════════════════════════════════════ -->
-  <section class="slide s09" id="slide-09">
-
-    <aside class="sidebar">
-      <div class="monogram"><span class="monogram__a">A</span><span class="monogram__i">i</span></div>
-    </aside>
-
-    <div class="topbar">
-      <div class="topbar__left">Smart Completion for Estimates</div>
-      <div class="topbar__right"><b>10</b> · product roadmap</div>
-    </div>
-
-    <main class="slide__main">
-      <header class="slide__head">
-        <h1 class="title title--md">
-          Что дальше:<br/><em>по продукту</em>
-        </h1>
-        <p class="s09__summary">
-          Четыре направления на следующий спринт: валидация, глубина, новые инпуты, экономика
-        </p>
-      </header>
-
-      <ol class="roadmap-list">
-        <li>
-          <span class="rm__num">01</span>
-          <span class="rm__body">
-            <span class="rm__name">Юзер-валидация</span>
-            <span class="rm__desc">Интервью с реальными юзерами. Больше вопросов про эстимейты. Готовность командных компаний платить</span>
-          </span>
-        </li>
-        <li>
-          <span class="rm__num">02</span>
-          <span class="rm__body">
-            <span class="rm__name">Региональные цены</span>
-            <span class="rm__desc">Учитывать локацию, чтобы отдавать только цены по локации</span>
-          </span>
-        </li>
-        <li>
-          <span class="rm__num">03</span>
-          <span class="rm__body">
-            <span class="rm__name">AR-модуль</span>
-            <span class="rm__desc">Штука, которая измеряет расстояния и автоматом заполняет scope в смете</span>
-          </span>
-        </li>
-        <li>
-          <span class="rm__num">04</span>
-          <span class="rm__body">
-            <span class="rm__name">Тариф и unit-экономика</span>
-            <span class="rm__desc">В какой план положить фичу. Посчитать экономику</span>
-          </span>
-        </li>
-      </ol>
-    </main>
-
-  </section>
-
-
-  <!-- ═════════════════════ Keyboard nav ════════════════════════ -->
-  <script>
-    (function () {
-      const slides = Array.from(document.querySelectorAll('.slide'));
-      const dots   = Array.from(document.querySelectorAll('.deck-nav a'));
-
-      const io = new IntersectionObserver((entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            const id = entry.target.id;
-            dots.forEach((d) => {
-              d.classList.toggle('is-active', d.getAttribute('href') === '#' + id);
-            });
+      {/* Modals */}
+      {modal?.kind === 'pickClient' && (
+        <PickClientModal
+          clients={clients}
+          onClose={() => setModal(null)}
+          onPick={handleClientPicked}
+          onNew={() => setModal({ kind:'newClient', returnTo:'jobTitle' })}
+        />
+      )}
+      {modal?.kind === 'newClient' && (
+        <NewClientModal
+          onClose={() => setModal(modal.returnTo === 'jobTitle' && clients.length>0 ? { kind:'pickClient' } : null)}
+          onSave={handleClientCreated}
+        />
+      )}
+      {modal?.kind === 'jobTitle' && (
+        <JobTitleModal
+          client={modal.client}
+          onClose={() => setModal(null)}
+          onBackToClient={() => setModal(clients.length>1 ? { kind:'pickClient' } : null)}
+          onContinue={handleJobTitleContinue}
+        />
+      )}
+      {modal?.kind === 'when' && (
+        <WhenModal
+          client={modal.client}
+          title={modal.title}
+          mode={modal.editJobId ? 'edit' : 'create'}
+          initialDateISO={modal.initialDateISO}
+          initialTime={modal.initialTime}
+          onClose={() => setModal(null)}
+          onBackToTitle={modal.editJobId ? null : () => setModal({ kind:'jobTitle', client: modal.client })}
+          onCreate={(payload) => {
+            if (modal.editJobId) {
+              handleReschedule(modal.editJobId, payload);
+            } else {
+              handleCreateJob(payload);
+            }
+          }}
+          onScheduleLater={() => {
+            if (modal.editJobId) {
+              handleReschedule(modal.editJobId, { time:'Unscheduled', dateISO: null });
+            } else {
+              handleCreateJob({ time:'Unscheduled', dateLabel:'Later', dateISO: null });
+            }
+          }}
+        />
+      )}
+      {modal?.kind === 'detail' && (() => {
+        const job = jobs.find(j => j.id === modal.jobId);
+        if (!job) return null;
+        return (
+          <JobDetailModal
+            job={job}
+            workers={workers}
+            allJobs={jobs}
+            onClose={() => setModal(null)}
+            onChangeStatus={(status) => handleStatusChange(job.id, status)}
+            onReschedule={() => setModal({
+              kind:'when',
+              editJobId: job.id,
+              client: { name: job.client },
+              title: job.title,
+              initialDateISO: job.dateISO,
+              initialTime: job.time === 'Unscheduled' ? null : job.time,
+            })}
+            onAssign={(workerId, workerName) => updateJob(job.id, { assigneeId: workerId, assigneeName: workerName })}
+            onUnassign={() => updateJob(job.id, { assigneeId: null, assigneeName: undefined })}
+            setView={setView}
+          />
+        );
+      })()}
+      {modal?.kind === 'inviteCrew' && (
+        <InviteCrewModal
+          onClose={() => setModal(null)}
+          onSave={(names) => {
+            const fresh = names.map((n, i) => ({ id:`w_${Date.now()}_${i}`, name:n }));
+            setWorkers(prev => [...prev, ...fresh]);
+            setModal(null);
+            pushToast(`${fresh.length} ${fresh.length===1?'worker':'workers'} added`);
+          }}
+        />
+      )}
+
+      {/* Toast */}
+      {toast && (
+        <Toast toast={toast} onDismiss={() => setToast(null)} onView={() => {
+          if (toast.viewTarget && toast.viewTarget !== view) {
+            setView(toast.viewTarget);
           }
-        });
-      }, { threshold: 0.55 });
-      slides.forEach((s) => io.observe(s));
+          if (toast.jobId) {
+            setHighlightJob(toast.jobId);
+            setTimeout(() => setHighlightJob(null), 1800);
+          }
+          setToast(null);
+        }} />
+      )}
 
-      let isScrolling = false;
-      document.addEventListener('keydown', (e) => {
-        if (isScrolling) return;
-        const keys = ['ArrowDown','ArrowRight','PageDown',' ','ArrowUp','ArrowLeft','PageUp'];
-        if (!keys.includes(e.key)) return;
-        e.preventDefault();
+      {/* Demo controls (small floating panel) */}
+      <DemoPanel
+        onLoad={loadDemoData}
+        onLoadStatuses={loadStatusShowcase}
+        onReset={resetAll}
+        onSeedClients={seedClients}
+        emptyVariant={emptyVariant}
+        setEmptyVariant={setEmptyVariant}
+      />
+    </div>
+  );
+}
 
-        const cur = Math.round(window.scrollY / window.innerHeight);
-        const forward = ['ArrowDown','ArrowRight','PageDown',' '].includes(e.key);
-        const next = forward ? Math.min(cur + 1, slides.length - 1) : Math.max(cur - 1, 0);
-        if (next === cur) return;
+/* ──────────────────────────────────────────────────────────────────
+   SIDEBAR
+   ────────────────────────────────────────────────────────────────── */
+function Sidebar({ view, setView }) {
+  return (
+    <aside className="w-[230px] shrink-0 flex flex-col py-5 px-4 border-r border-line">
+      <div className="flex flex-col gap-3 px-1 pb-5">
+        <button className="flex items-center gap-2 group">
+          <div className="w-8 h-8 rounded-[7px] bg-black flex items-center justify-center text-white font-semibold text-sm">B</div>
+        </button>
+        <button className="flex items-center justify-between text-[14px] font-medium text-ink rounded-md hover:bg-cream-soft px-1 py-1 -mx-1 transition">
+          <span>Brick Builder</span>
+          <Ic.chevronDown width="14" height="14" className="text-muted" />
+        </button>
+      </div>
+      <nav className="flex flex-col gap-0.5">
+        {NAV_ITEMS.map(item => {
+          const active = view === item.id;
+          const I = Ic[item.icon];
+          return (
+            <button
+              key={item.id}
+              onClick={() => setView(item.id)}
+              className={`flex items-center gap-2.5 px-3 py-2 rounded-[8px] text-[13.5px] font-medium transition-colors ${
+                active ? 'bg-cream text-ink' : 'text-ink hover:bg-cream-soft'
+              }`}
+            >
+              <I width="17" height="17" className="shrink-0" />
+              <span>{item.label}</span>
+            </button>
+          );
+        })}
+      </nav>
+      <div className="mt-auto flex flex-col gap-0.5">
+        <button className="flex items-center gap-2.5 px-3 py-2 rounded-[8px] text-[13.5px] font-medium text-ink hover:bg-cream-soft transition-colors">
+          <Ic.settings width="17" height="17" className="shrink-0" />
+          <span>Settings</span>
+        </button>
+        <button className="flex items-center gap-2.5 px-3 py-2 rounded-[8px] text-[13.5px] font-medium text-ink hover:bg-cream-soft transition-colors">
+          <Ic.support width="17" height="17" className="shrink-0" />
+          <span>Support</span>
+        </button>
+      </div>
+    </aside>
+  );
+}
 
-        isScrolling = true;
-        slides[next].scrollIntoView({ behavior: 'smooth' });
-        setTimeout(() => { isScrolling = false; }, 600);
-      });
-    })();
-  </script>
+/* ──────────────────────────────────────────────────────────────────
+   TODAY VIEW
+   ────────────────────────────────────────────────────────────────── */
+function TodayView({ jobs, workers, setJobs, onSchedule, onAddEstimate, onOpenJob, highlightJob, setHighlightJob, setView, emptyVariant }) {
+  const total = jobs.length;
+  const done = jobs.filter(j => j.status === 'done').length;
+  const subtitle = total === 0 ? "You're all caught up" : `${done} of ${total} ${total===1?'visit':'visits'} done`;
 
+  return (
+    <div className="h-full overflow-auto">
+      <div className="px-10 pt-10 pb-2 flex items-start justify-between gap-6">
+        <div>
+          <h1 className="text-[28px] font-semibold tracking-[-0.02em] leading-tight">Today</h1>
+          <p className="mt-1 text-[13.5px] text-muted">{subtitle}</p>
+        </div>
+        <div className="flex items-center gap-2.5">
+          <button
+            onClick={onSchedule}
+            className="px-4 h-9 rounded-[8px] bg-black text-white text-[13.5px] font-medium hover:bg-ink-soft transition"
+            style={{background:'var(--ink)'}}
+          >
+            Schedule job
+          </button>
+          <button
+            onClick={onAddEstimate}
+            className="px-4 h-9 rounded-[8px] bg-white text-ink text-[13.5px] font-medium border border-line-strong hover:bg-cream-soft transition"
+          >
+            Add estimate
+          </button>
+        </div>
+      </div>
+
+      <div className="px-10 mt-6 pb-10">
+        {jobs.length === 0 ? (
+          <EmptyToday variant={emptyVariant} />
+        ) : (
+          <JobList
+            jobs={jobs}
+            workers={workers}
+            setJobs={setJobs}
+            onOpenJob={onOpenJob}
+            highlightJob={highlightJob}
+            setView={setView}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function EmptyToday({ variant = 'original' }) {
+  const text = variant === 'alternative'
+    ? 'As you schedule visits, they line up here from morning to evening. Your whole day in one place'
+    : 'Quiet day, no more jobs today';
+  return (
+    <div
+      className="rounded-[12px] flex items-center justify-center text-muted-soft text-[14px] text-center px-6 leading-relaxed"
+      style={{
+        height:'min(60vh, 480px)',
+        border:'1.5px dashed var(--line-strong)'
+      }}
+    >
+      <span className="max-w-[420px]">{text}</span>
+    </div>
+  );
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   JOBS VIEW — all scheduled jobs grouped by date
+   ────────────────────────────────────────────────────────────────── */
+function JobsView({ jobs, workers, setJobs, onSchedule, onOpenJob, highlightJob, setView }) {
+  const groups = useMemo(() => {
+    const map = new Map();
+    for (const j of jobs) {
+      const key = j.dateISO || '__unscheduled__';
+      if (!map.has(key)) map.set(key, []);
+      map.get(key).push(j);
+    }
+    for (const arr of map.values()) {
+      arr.sort((a, b) => timeKey(a.time) - timeKey(b.time));
+    }
+    const entries = Array.from(map.entries()).sort(([a], [b]) => {
+      if (a === '__unscheduled__') return 1;
+      if (b === '__unscheduled__') return -1;
+      return a < b ? -1 : 1;
+    });
+    return entries;
+  }, [jobs]);
+
+  return (
+    <div className="h-full overflow-auto">
+      <div className="px-10 pt-10 pb-2 flex items-start justify-between gap-6">
+        <div>
+          <h1 className="text-[28px] font-semibold tracking-[-0.02em] leading-tight">Jobs</h1>
+          <p className="mt-1 text-[13.5px] text-muted">
+            {jobs.length === 0
+              ? 'No jobs scheduled yet'
+              : `${jobs.length} ${jobs.length === 1 ? 'job' : 'jobs'} scheduled`}
+          </p>
+        </div>
+        <div className="flex items-center gap-2.5">
+          <button
+            onClick={onSchedule}
+            className="px-4 h-9 rounded-[8px] text-white text-[13.5px] font-medium hover:bg-ink-soft transition"
+            style={{background:'var(--ink)'}}
+          >
+            Schedule job
+          </button>
+        </div>
+      </div>
+
+      <div className="px-10 mt-6 pb-10">
+        {jobs.length === 0 ? (
+          <div
+            className="rounded-[12px] flex items-center justify-center text-muted-soft text-[14px]"
+            style={{height:'320px', border:'1.5px dashed var(--line-strong)'}}
+          >
+            Schedule a job and it'll show up here
+          </div>
+        ) : (
+          <div className="flex flex-col gap-7">
+            {groups.map(([key, items]) => (
+              <section key={key}>
+                <div className="flex items-baseline gap-3 mb-1.5">
+                  <h2 className="text-[14px] font-semibold text-ink tracking-[-0.005em]">
+                    {key === '__unscheduled__' ? 'Unscheduled' : friendlyDate(key)}
+                  </h2>
+                  <span className="text-[12px] text-muted-soft tabular-nums">
+                    {items.length} {items.length === 1 ? 'visit' : 'visits'}
+                  </span>
+                </div>
+                <div>
+                  {items.map(job => (
+                    <JobRow
+                      key={job.id}
+                      job={job}
+                      workers={workers}
+                      allJobs={items}
+                      setJobs={setJobs}
+                      onOpen={onOpenJob}
+                      highlight={highlightJob === job.id}
+                      setView={setView}
+                    />
+                  ))}
+                </div>
+              </section>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   JOB LIST + ROW
+   ────────────────────────────────────────────────────────────────── */
+function JobList({ jobs, workers, setJobs, onOpenJob, highlightJob, setView }) {
+  const items = useMemo(() => {
+    const sorted = [...jobs].sort((a,b)=>timeKey(a.time)-timeKey(b.time));
+    return sorted;
+  }, [jobs]);
+
+  const nowIndex = items.findIndex(j => timeKey(j.time) > NOW_KEY);
+
+  return (
+    <div>
+      {items.map((job, i) => (
+        <React.Fragment key={job.id}>
+          {i === nowIndex && <NowMarker label={NOW_LABEL} />}
+          <JobRow
+            job={job}
+            workers={workers}
+            allJobs={items}
+            setJobs={setJobs}
+            onOpen={onOpenJob}
+            highlight={highlightJob === job.id}
+            setView={setView}
+          />
+        </React.Fragment>
+      ))}
+      {nowIndex === -1 && items.length > 0 && <NowMarker label={NOW_LABEL} atEnd />}
+    </div>
+  );
+}
+
+function NowMarker({ label, atEnd }) {
+  return (
+    <div className="relative h-0 z-10" aria-hidden="false">
+      <div
+        className="absolute left-[14px] -translate-y-1/2 inline-flex items-center text-[11.5px] font-medium text-white px-2 py-1 rounded-full select-none"
+        style={{ background:'#2A3F5F', top: atEnd ? 'auto' : 0, bottom: atEnd ? 0 : 'auto', boxShadow:'0 1px 2px rgba(0,0,0,0.10)' }}
+      >
+        {label}
+      </div>
+    </div>
+  );
+}
+
+function JobRow({ job, workers, allJobs, setJobs, onOpen, highlight, setView }) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [emptyHintOpen, setEmptyHintOpen] = useState(false);
+  const wrapRef = useRef(null);
+
+  // Close menus on outside click
+  useEffect(() => {
+    const onClick = (e) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) {
+        setMenuOpen(false); setEmptyHintOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onClick);
+    return () => document.removeEventListener('mousedown', onClick);
+  }, []);
+
+  const onAssignClick = (e) => {
+    e.stopPropagation();
+    if (workers.length === 0) {
+      setEmptyHintOpen(v => !v);
+      setMenuOpen(false);
+    } else {
+      setMenuOpen(v => !v);
+      setEmptyHintOpen(false);
+    }
+  };
+
+  const setAssignee = (workerId, workerName) => {
+    setJobs(prev => prev.map(j => j.id === job.id ? { ...j, assigneeId: workerId, assigneeName: workerName } : j));
+    setMenuOpen(false);
+  };
+  const unassign = () => {
+    setJobs(prev => prev.map(j => j.id === job.id ? { ...j, assigneeId:null, assigneeName:undefined } : j));
+    setMenuOpen(false);
+  };
+
+  const status = effectiveStatus(job);
+  const isDone = status === 'done';
+
+  return (
+    <div
+      onClick={() => onOpen && onOpen(job)}
+      className={`relative flex items-center gap-6 py-4 transition-colors cursor-pointer ${highlight ? 'bg-cream-soft' : 'hover:bg-cream-soft/60'} ${isDone ? 'opacity-60' : ''}`}
+      style={{borderTop:'1px solid var(--line)'}}
+    >
+      <div className="w-[78px] shrink-0 text-[13.5px] text-muted tabular-nums">{job.time}</div>
+      <div className="flex-1 min-w-0">
+        <div className={`text-[14.5px] text-ink font-medium leading-tight ${isDone ? 'line-through decoration-1 decoration-[var(--muted-soft)]' : ''}`}>{job.title}</div>
+        <div className="text-[13px] text-muted mt-0.5">{job.client}</div>
+      </div>
+
+      <div
+        className="flex items-center gap-2 shrink-0"
+        ref={wrapRef}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <StatusPill status={status} />
+
+        {job.assigneeId
+          ? (
+            <button
+              onClick={onAssignClick}
+              className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full text-[12.5px] text-ink bg-white border border-line-strong hover:bg-cream-soft transition relative"
+            >
+              <Ic.userBadge width="13" height="13" />
+              <span>{job.assigneeName}</span>
+            </button>
+          )
+          : (
+            <button
+              onClick={onAssignClick}
+              className="inline-flex items-center gap-1 h-7 px-2.5 rounded-full text-[12.5px] text-muted bg-white border border-dashed border-line-strong hover:bg-cream-soft hover:text-ink transition"
+            >
+              <Ic.plus width="12" height="12" />
+              <span>Assign</span>
+            </button>
+          )
+        }
+
+        {menuOpen && workers.length > 0 && (
+          <AssigneeMenu
+            allJobs={allJobs}
+            currentJob={job}
+            workers={workers}
+            onPick={setAssignee}
+            onUnassign={unassign}
+          />
+        )}
+        {emptyHintOpen && workers.length === 0 && (
+          <EmptyCrewHint
+            onClose={() => setEmptyHintOpen(false)}
+            onInvite={() => { setEmptyHintOpen(false); setView('crew'); }}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function StatusPill({ status }) {
+  if (status === 'overdue')
+    return <span className="text-[11.5px] font-medium px-2 py-0.5 rounded-full" style={{background:'var(--red-soft)', color:'var(--red-text)'}}>Overdue</span>;
+  if (status === 'in_progress')
+    return <span className="text-[11.5px] font-medium px-2 py-0.5 rounded-full" style={{background:'var(--blue-soft)', color:'var(--blue-text)'}}>In progress</span>;
+  if (status === 'done')
+    return <span className="text-[11.5px] font-medium px-2 py-0.5 rounded-full" style={{background:'var(--green-soft)', color:'var(--green-text)'}}>Done</span>;
+  return null;
+}
+
+/* Assignee menu (matches screen 11/12) */
+function AssigneeMenu({ allJobs, currentJob, workers, onPick, onUnassign }) {
+  // Compute "Booked at" annotations for each worker by looking at other jobs.
+  const booked = useMemo(() => {
+    const map = {};
+    for (const j of allJobs) {
+      if (j.id === currentJob.id) continue;
+      if (!j.assigneeId) continue;
+      if (!map[j.assigneeId]) map[j.assigneeId] = j.time; // first occurrence
+    }
+    return map;
+  }, [allJobs, currentJob.id]);
+
+  const isAssigned = !!currentJob.assigneeId;
+
+  return (
+    <div
+      className="absolute right-0 top-9 z-30 w-[300px] bg-white rounded-[10px] py-1.5 shadow-pop animate-fade-up"
+    >
+      <ul className="max-h-[260px] overflow-auto menu-scroll">
+        {workers.map(w => {
+          const bookedAt = booked[w.id];
+          const isCurrent = w.id === currentJob.assigneeId;
+          return (
+            <li key={w.id}>
+              <button
+                onClick={() => onPick(w.id, w.name)}
+                className={`w-full flex items-center justify-between gap-3 px-3.5 py-2 text-[13.5px] hover:bg-cream-soft transition ${isCurrent ? 'bg-cream-soft font-medium' : ''}`}
+              >
+                <span className="text-ink truncate">{w.name}</span>
+                {bookedAt && <span className="text-muted-soft text-[12.5px] tabular-nums shrink-0">Booked at {bookedAt}</span>}
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+      {isAssigned && (
+        <>
+          <div className="h-px my-1" style={{background:'var(--line)'}} />
+          <div className="px-2 pb-1.5">
+            <button
+              onClick={onUnassign}
+              className="w-full px-3 py-1.5 rounded-[7px] border border-line-strong text-[13px] text-ink hover:bg-cream-soft transition"
+            >
+              Unassign
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+/* Empty-crew hint shown next to a job's Assign button (matches screen 9 spirit) */
+function EmptyCrewHint({ onClose, onInvite }) {
+  return (
+    <div
+      className="absolute right-0 top-9 z-30 w-[280px] p-4 bg-white rounded-[12px] animate-fade-up"
+      style={{
+        boxShadow:'0 1px 2px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.10), 0 0 0 1px var(--line)',
+        border:'1.5px dashed var(--line-strong)',
+      }}
+    >
+      <div className="flex justify-center mb-3">
+        <Ic.crew width="34" height="34" className="text-ink" />
+      </div>
+      <p className="text-center text-[13px] text-ink leading-snug mb-3">
+        Assign workers to jobs and<br/>keep everyone in sync
+      </p>
+      <button
+        onClick={onInvite}
+        className="w-full h-9 rounded-[8px] bg-black text-white text-[13px] font-medium hover:bg-ink-soft transition"
+        style={{background:'var(--ink)'}}
+      >
+        Invite crew
+      </button>
+    </div>
+  );
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   PICK CLIENT MODAL  (screen 6 / 7 / 8)
+   ────────────────────────────────────────────────────────────────── */
+function PickClientModal({ clients, onClose, onPick, onNew }) {
+  const [q, setQ] = useState('');
+  const filtered = clients.filter(c =>
+    `${c.name} ${c.address || ''} ${c.phone || ''}`.toLowerCase().includes(q.trim().toLowerCase())
+  );
+
+  return (
+    <ModalShell onClose={onClose}>
+      <Card>
+        <header className="px-7 pt-6 pb-4">
+          <h2 className="text-[20px] font-semibold tracking-[-0.01em]">Client</h2>
+          <p className="text-[13px] text-muted mt-0.5">Pick a client or add a new one</p>
+        </header>
+        <div className="px-7">
+          <div className="flex items-center gap-2">
+            <div className="flex-1 relative">
+              <Ic.search width="15" height="15" className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-soft" />
+              <input
+                autoFocus
+                value={q}
+                onChange={e => setQ(e.target.value)}
+                placeholder="Search name, phone or address"
+                className="w-full h-10 pl-9 pr-3 rounded-[8px] border border-line-strong text-[13.5px] placeholder-muted-soft bg-white"
+              />
+            </div>
+            <button
+              onClick={onNew}
+              className="h-10 px-4 rounded-[8px] bg-black text-white text-[13.5px] font-medium hover:bg-ink-soft transition shrink-0"
+              style={{background:'var(--ink)'}}
+            >
+              New client
+            </button>
+          </div>
+        </div>
+
+        <div className="px-7 pb-7 pt-2 max-h-[440px] overflow-auto menu-scroll">
+          {filtered.length === 0 && q.trim() ? (
+            <div
+              className="mt-3 rounded-[10px] py-7 flex flex-col items-center justify-center gap-3"
+              style={{border:'1.5px dashed var(--line-strong)'}}
+            >
+              <p className="text-[13px] text-muted">No clients found for "{q}"</p>
+              <button
+                onClick={() => setQ('')}
+                className="h-8 px-3.5 rounded-[7px] border border-line-strong text-[13px] text-ink hover:bg-cream-soft transition"
+              >
+                Clear search
+              </button>
+            </div>
+          ) : (
+            <ul>
+              {filtered.map((c, i) => (
+                <li key={c.id}>
+                  <button
+                    onClick={() => onPick(c)}
+                    className="w-full flex items-center justify-between gap-4 py-3 text-left hover:bg-cream-soft -mx-2 px-2 rounded-[6px] transition"
+                    style={{borderTop: i===0 ? 'none' : '1px solid var(--line)'}}
+                  >
+                    <span className="text-[14px] text-ink font-medium">{c.name}</span>
+                    <span className="flex items-center gap-3 shrink-0">
+                      <span className="text-[13px] text-muted-soft">{c.address}</span>
+                      {c.jobs && (
+                        <span className="text-[11.5px] text-muted bg-cream-soft px-2 py-0.5 rounded-full" style={{boxShadow:'0 0 0 1px var(--line)'}}>
+                          {c.jobs} {c.jobs===1?'job':'jobs'}
+                        </span>
+                      )}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </Card>
+    </ModalShell>
+  );
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   NEW CLIENT MODAL (screen 2)
+   ────────────────────────────────────────────────────────────────── */
+function NewClientModal({ onClose, onSave }) {
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [address, setAddress] = useState('');
+  const canSave = name.trim().length > 0;
+
+  const submit = () => {
+    if (!canSave) return;
+    onSave({
+      id: `c_${Date.now()}`,
+      name: name.trim(),
+      email: email.trim(),
+      phone: phone.trim(),
+      address: address.trim(),
+    });
+  };
+
+  return (
+    <ModalShell onClose={onClose}>
+      <Card>
+        <header className="px-7 pt-6 pb-1">
+          <h2 className="text-[20px] font-semibold tracking-[-0.01em]">New client</h2>
+          <p className="text-[13px] text-muted mt-0.5">Who is this job for</p>
+        </header>
+        <div className="px-7 py-5 flex flex-col gap-4">
+          <Field label="Name">
+            <Input value={name} onChange={setName} placeholder="Dr. Emmett Brown" autoFocus />
+          </Field>
+          <Field label="Email">
+            <Input value={email} onChange={setEmail} placeholder="doc.brown@backtothefuture.com" />
+          </Field>
+          <Field label="Phone">
+            <Input value={phone} onChange={setPhone} placeholder="(123) 456-7890" />
+          </Field>
+          <Field label="Address">
+            <Textarea value={address} onChange={setAddress} placeholder="Street, city, country, zip" />
+          </Field>
+        </div>
+        <footer className="px-7 pb-6 pt-2 flex items-center justify-between">
+          <button
+            onClick={onClose}
+            className="h-9 px-4 rounded-[8px] border border-line-strong text-[13.5px] text-ink hover:bg-cream-soft transition"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={submit}
+            disabled={!canSave}
+            className={`h-9 px-4 rounded-[8px] text-[13.5px] font-medium transition ${canSave ? 'text-white hover:bg-ink-soft' : 'text-white opacity-40 cursor-not-allowed'}`}
+            style={{background:'var(--ink)'}}
+          >
+            Save client
+          </button>
+        </footer>
+      </Card>
+    </ModalShell>
+  );
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   JOB TITLE MODAL (screen 3)
+   ────────────────────────────────────────────────────────────────── */
+function JobTitleModal({ client, onClose, onBackToClient, onContinue }) {
+  const [title, setTitle] = useState('');
+  const canContinue = title.trim().length > 0;
+
+  return (
+    <ModalShell onClose={onClose}>
+      <div className="w-[560px] max-w-full flex flex-col gap-2.5 animate-scale-in">
+        <SummaryCard label="Client" value={client.name} icon={<Ic.user width="15" height="15" />} onClick={onBackToClient} />
+        <Card>
+          <header className="px-7 pt-6 pb-4">
+            <h2 className="text-[20px] font-semibold tracking-[-0.01em]">What should be done</h2>
+          </header>
+          <div className="px-7">
+            <Field label="Job title">
+              <Input value={title} onChange={setTitle} placeholder="Leak under kitchen sink" autoFocus />
+            </Field>
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {QUICK_PICKS.map(qp => (
+                <button
+                  key={qp}
+                  onClick={() => setTitle(qp)}
+                  className={`h-7 px-3 rounded-full text-[12.5px] border transition ${title===qp ? 'bg-ink text-white border-ink' : 'bg-white text-ink border-line-strong hover:bg-cream-soft'}`}
+                  style={title===qp ? {background:'var(--ink)', borderColor:'var(--ink)'} : {}}
+                >
+                  {qp}
+                </button>
+              ))}
+            </div>
+          </div>
+          <footer className="px-7 pb-6 pt-6 flex items-center justify-end">
+            <button
+              onClick={() => canContinue && onContinue(title.trim())}
+              disabled={!canContinue}
+              className={`h-9 px-5 rounded-[8px] text-[13.5px] font-medium transition ${canContinue ? 'text-white hover:bg-ink-soft' : 'text-white opacity-40 cursor-not-allowed'}`}
+              style={{background:'var(--ink)'}}
+            >
+              Continue
+            </button>
+          </footer>
+        </Card>
+      </div>
+    </ModalShell>
+  );
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   WHEN MODAL (screen 4)
+   ────────────────────────────────────────────────────────────────── */
+function WhenModal({ client, title, mode='create', initialDateISO, initialTime, onClose, onBackToTitle, onCreate, onScheduleLater }) {
+  const isEdit = mode === 'edit';
+  const today = new Date();
+  const initial = initialDateISO ? parseLocalISO(initialDateISO) : today;
+  const [weekStart, setWeekStart] = useState(initial);
+  const [selectedDate, setSelectedDate] = useState(0);
+  const [selectedTime, setSelectedTime] = useState(initialTime || '9:00 AM');
+
+  const days = useMemo(() => {
+    const arr = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(weekStart);
+      d.setDate(d.getDate() + i);
+      arr.push(d);
+    }
+    return arr;
+  }, [weekStart]);
+
+  const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+  const headerLabel = (() => {
+    const sel = days[selectedDate];
+    if (sel && sel.toDateString() === today.toDateString()) {
+      return `Today, ${monthNames[sel.getMonth()]} ${sel.getDate()}`;
+    }
+    return `${monthNames[sel.getMonth()]} ${sel.getDate()}`;
+  })();
+
+  const shiftWeek = (delta) => {
+    const d = new Date(weekStart); d.setDate(d.getDate() + delta*7); setWeekStart(d);
+    setSelectedDate(0);
+  };
+
+  // Some times are visually disabled to mimic the screenshot.
+  const isDisabled = (t) => {
+    // Past-time mock — disable 8:00 AM (screen showed 8:00 AM faded).
+    if (t === '8:00 AM') return true;
+    return false;
+  };
+
+  const dateLabel = (() => {
+    const sel = days[selectedDate];
+    return `${dayNames[sel.getDay()]} ${sel.getDate()}`;
+  })();
+  const selectedDateISO = dateToISO(days[selectedDate]);
+
+  return (
+    <ModalShell onClose={onClose}>
+      <div className="w-[560px] max-w-full flex flex-col gap-2.5 animate-scale-in">
+        <SummaryCard label="Client" value={client.name} icon={<Ic.user width="15" height="15" />} />
+        <SummaryCard
+          label="Job"
+          value={title}
+          icon={<Ic.jobs width="15" height="15" />}
+          onClick={isEdit ? null : onBackToTitle}
+        />
+        <Card>
+          <header className="px-7 pt-6 pb-4">
+            <h2 className="text-[20px] font-semibold tracking-[-0.01em]">{isEdit ? 'Reschedule' : 'When'}</h2>
+          </header>
+          <div className="px-7">
+            {/* Week header with arrows */}
+            <div className="flex items-center justify-between">
+              <button onClick={() => shiftWeek(-1)} className="w-9 h-9 rounded-[8px] border border-line-strong flex items-center justify-center hover:bg-cream-soft transition">
+                <Ic.arrowLeft width="15" height="15" />
+              </button>
+              <div className="text-[13.5px] text-ink font-medium">{headerLabel}</div>
+              <button onClick={() => shiftWeek(1)} className="w-9 h-9 rounded-[8px] border border-line-strong flex items-center justify-center hover:bg-cream-soft transition">
+                <Ic.arrowRight width="15" height="15" />
+              </button>
+            </div>
+
+            {/* Day grid */}
+            <div className="mt-3 grid grid-cols-7 gap-2">
+              {days.map((d, i) => {
+                const selected = i === selectedDate;
+                return (
+                  <button
+                    key={i}
+                    onClick={() => setSelectedDate(i)}
+                    className={`flex flex-col items-center py-2 rounded-[10px] border text-center transition ${selected ? 'border-ink bg-white' : 'border-transparent hover:bg-cream-soft'}`}
+                    style={selected ? {borderColor:'var(--ink)'} : {}}
+                  >
+                    <span className={`text-[11.5px] ${selected ? 'text-ink' : 'text-muted'}`}>{dayNames[d.getDay()]}</span>
+                    <span className={`text-[15px] font-medium tabular-nums mt-0.5 ${selected ? 'text-ink' : 'text-muted'}`}>{d.getDate()}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Time grid */}
+            <div className="mt-5 grid grid-cols-4 gap-2">
+              {TIME_SLOTS.map(t => {
+                const selected = selectedTime === t;
+                const disabled = isDisabled(t);
+                if (selected) {
+                  return (
+                    <button
+                      key={t}
+                      onClick={() => !disabled && setSelectedTime(t)}
+                      className="h-10 rounded-[8px] text-[13px] font-medium text-white tabular-nums"
+                      style={{background:'var(--ink)'}}
+                    >
+                      {t}
+                    </button>
+                  );
+                }
+                if (disabled) {
+                  return (
+                    <button
+                      key={t}
+                      disabled
+                      className="h-10 rounded-[8px] text-[13px] tabular-nums cursor-not-allowed"
+                      style={{background:'var(--cream-soft)', color:'var(--muted-soft)'}}
+                    >
+                      {t}
+                    </button>
+                  );
+                }
+                return (
+                  <button
+                    key={t}
+                    onClick={() => setSelectedTime(t)}
+                    className="h-10 rounded-[8px] text-[13px] tabular-nums text-ink border border-line-strong bg-white hover:bg-cream-soft transition"
+                  >
+                    {t}
+                  </button>
+                );
+              })}
+              <button
+                className="h-10 rounded-[8px] text-[13px] text-ink flex items-center justify-center gap-1.5 hover:bg-cream-soft transition"
+                style={{border:'1.5px dashed var(--line-strong)'}}
+                onClick={() => alert('Custom time picker — out of scope for prototype')}
+              >
+                <Ic.link width="13" height="13" />
+                Other...
+              </button>
+            </div>
+          </div>
+
+          <footer className="px-7 pb-6 pt-6 flex items-center justify-between">
+            <button
+              onClick={onScheduleLater}
+              className="h-9 px-4 rounded-[8px] border border-line-strong text-[13.5px] text-ink hover:bg-cream-soft transition"
+            >
+              Schedule later
+            </button>
+            <button
+              onClick={() => onCreate({ time: selectedTime, dateLabel, dateISO: selectedDateISO })}
+              className="h-9 px-5 rounded-[8px] text-white text-[13.5px] font-medium hover:bg-ink-soft transition"
+              style={{background:'var(--ink)'}}
+            >
+              {isEdit ? 'Save' : 'Create job'}
+            </button>
+          </footer>
+        </Card>
+      </div>
+    </ModalShell>
+  );
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   JOB DETAIL MODAL — open a visit, change status, reschedule, delete
+   ────────────────────────────────────────────────────────────────── */
+function JobDetailModal({ job, workers, allJobs, onClose, onChangeStatus, onReschedule }) {
+  const status = effectiveStatus(job);
+  const isDone = status === 'done';
+  const isInProgress = status === 'in_progress';
+
+  const whenLabel = (() => {
+    if (!job.dateISO) return 'Unscheduled';
+    const dl = friendlyDate(job.dateISO);
+    if (job.time === 'Unscheduled') return dl;
+    return `${dl}, ${job.time}`;
+  })();
+
+  return (
+    <ModalShell onClose={onClose}>
+      <Card>
+        <header className="px-7 pt-6 pb-4">
+          <StatusPill status={status} />
+          <h2 className="mt-3 text-[22px] font-semibold tracking-[-0.01em] leading-tight">{job.title}</h2>
+          <p className="text-[13.5px] text-muted mt-0.5">{job.client}</p>
+        </header>
+
+        <div className="px-7 py-4 flex flex-col gap-2.5" style={{borderTop:'1px solid var(--line)'}}>
+          <DetailRow icon={<Ic.today width="14" height="14" />} label="When" value={whenLabel} />
+          <DetailRow
+            icon={<Ic.userBadge width="14" height="14" />}
+            label="Worker"
+            value={job.assigneeName || <span className="text-muted-soft">Unassigned</span>}
+          />
+        </div>
+
+        <div className="px-7 py-4 flex flex-wrap items-center gap-2" style={{borderTop:'1px solid var(--line)'}}>
+          <button
+            onClick={onReschedule}
+            className="h-9 px-4 rounded-[8px] border border-line-strong text-[13px] text-ink hover:bg-cream-soft transition"
+          >
+            Reschedule
+          </button>
+          {!isDone && !isInProgress && (
+            <button
+              onClick={() => onChangeStatus('in_progress')}
+              className="h-9 px-4 rounded-[8px] border border-line-strong text-[13px] text-ink hover:bg-cream-soft transition"
+            >
+              Mark in progress
+            </button>
+          )}
+          {!isDone && (
+            <button
+              onClick={() => onChangeStatus('done')}
+              className="h-9 px-4 rounded-[8px] text-white text-[13px] font-medium hover:bg-ink-soft transition ml-auto inline-flex items-center gap-1.5"
+              style={{background:'var(--ink)'}}
+            >
+              <Ic.check width="14" height="14" />
+              Mark done
+            </button>
+          )}
+          {isDone && (
+            <button
+              onClick={() => onChangeStatus('scheduled')}
+              className="h-9 px-4 rounded-[8px] border border-line-strong text-[13px] text-ink hover:bg-cream-soft transition ml-auto"
+            >
+              Reopen
+            </button>
+          )}
+        </div>
+      </Card>
+    </ModalShell>
+  );
+}
+
+function DetailRow({ icon, label, value }) {
+  return (
+    <div className="flex items-center gap-3">
+      <span className="w-16 text-[12.5px] text-muted flex items-center gap-1.5">
+        <span className="text-muted-soft">{icon}</span>
+        {label}
+      </span>
+      <span className="text-[13.5px] text-ink">{value}</span>
+    </div>
+  );
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   CREW VIEW + INVITE
+   ────────────────────────────────────────────────────────────────── */
+function CrewView({ workers, setWorkers, setModal, pushToast }) {
+  const removeWorker = (id) => {
+    setWorkers(prev => prev.filter(w => w.id !== id));
+  };
+
+  return (
+    <div className="h-full overflow-auto">
+      <div className="px-10 pt-10 pb-2 flex items-start justify-between gap-6">
+        <div>
+          <h1 className="text-[28px] font-semibold tracking-[-0.02em] leading-tight">Crew</h1>
+          <p className="mt-1 text-[13.5px] text-muted">
+            {workers.length === 0 ? 'No workers yet' : `${workers.length} ${workers.length===1?'worker':'workers'} on the team`}
+          </p>
+        </div>
+        <button
+          onClick={() => setModal({ kind:'inviteCrew' })}
+          className="px-4 h-9 rounded-[8px] text-white text-[13.5px] font-medium hover:bg-ink-soft transition"
+          style={{background:'var(--ink)'}}
+        >
+          Invite crew
+        </button>
+      </div>
+
+      <div className="px-10 mt-6 pb-10">
+        {workers.length === 0 ? (
+          <div
+            className="rounded-[12px] flex flex-col items-center justify-center gap-4 px-6 py-16"
+            style={{border:'1.5px dashed var(--line-strong)'}}
+          >
+            <Ic.crew width="42" height="42" className="text-ink" />
+            <div className="text-center">
+              <p className="text-[14px] text-ink leading-snug">Assign workers to jobs and</p>
+              <p className="text-[14px] text-ink leading-snug">keep everyone in sync</p>
+            </div>
+            <button
+              onClick={() => setModal({ kind:'inviteCrew' })}
+              className="h-9 px-4 rounded-[8px] text-white text-[13.5px] font-medium hover:bg-ink-soft transition"
+              style={{background:'var(--ink)'}}
+            >
+              Invite crew
+            </button>
+          </div>
+        ) : (
+          <ul className="rounded-[12px] overflow-hidden" style={{border:'1px solid var(--line)'}}>
+            {workers.map((w, i) => (
+              <li key={w.id} className="flex items-center justify-between px-5 py-3.5" style={{borderTop: i===0 ? 'none' : '1px solid var(--line)'}}>
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-cream flex items-center justify-center text-[13px] font-semibold text-ink">
+                    {w.name.split(' ').map(p=>p[0]).slice(0,2).join('')}
+                  </div>
+                  <span className="text-[14px] text-ink font-medium">{w.name}</span>
+                </div>
+                <button
+                  onClick={() => removeWorker(w.id)}
+                  className="text-[12.5px] text-muted hover:text-ink transition px-2 py-1 rounded-md hover:bg-cream-soft"
+                >
+                  Remove
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function InviteCrewModal({ onClose, onSave }) {
+  const [rows, setRows] = useState(['']);
+  const update = (i, v) => setRows(rows.map((r, j) => j===i ? v : r));
+  const add = () => setRows([...rows, '']);
+  const remove = (i) => setRows(rows.filter((_, j) => j !== i));
+  const valid = rows.map(r => r.trim()).filter(Boolean);
+
+  return (
+    <ModalShell onClose={onClose}>
+      <Card>
+        <header className="px-7 pt-6 pb-1">
+          <h2 className="text-[20px] font-semibold tracking-[-0.01em]">Invite crew</h2>
+          <p className="text-[13px] text-muted mt-0.5">Add workers by name. They'll appear in the assignee list.</p>
+        </header>
+        <div className="px-7 py-5 flex flex-col gap-2.5">
+          {rows.map((r, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <Input value={r} onChange={(v)=>update(i,v)} placeholder="James Albright" autoFocus={i===rows.length-1} />
+              {rows.length > 1 && (
+                <button
+                  onClick={() => remove(i)}
+                  className="w-9 h-10 rounded-[8px] border border-line-strong flex items-center justify-center text-muted hover:text-ink hover:bg-cream-soft transition shrink-0"
+                >
+                  <Ic.close width="14" height="14" />
+                </button>
+              )}
+            </div>
+          ))}
+          <button
+            onClick={add}
+            className="self-start text-[13px] text-muted hover:text-ink transition flex items-center gap-1.5"
+          >
+            <Ic.plus width="13" height="13" />
+            Add another
+          </button>
+        </div>
+        <footer className="px-7 pb-6 pt-2 flex items-center justify-between">
+          <button
+            onClick={onClose}
+            className="h-9 px-4 rounded-[8px] border border-line-strong text-[13.5px] text-ink hover:bg-cream-soft transition"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => valid.length && onSave(valid)}
+            disabled={!valid.length}
+            className={`h-9 px-4 rounded-[8px] text-[13.5px] font-medium transition ${valid.length ? 'text-white hover:bg-ink-soft' : 'text-white opacity-40 cursor-not-allowed'}`}
+            style={{background:'var(--ink)'}}
+          >
+            Add to crew
+          </button>
+        </footer>
+      </Card>
+    </ModalShell>
+  );
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   PLACEHOLDER + CLIENTS view
+   ────────────────────────────────────────────────────────────────── */
+function PlaceholderView({ label }) {
+  return (
+    <div className="h-full flex flex-col">
+      <div className="px-10 pt-10 pb-2">
+        <h1 className="text-[28px] font-semibold tracking-[-0.02em] leading-tight">{label}</h1>
+        <p className="mt-1 text-[13.5px] text-muted">Section preview — out of scope for this prototype</p>
+      </div>
+      <div className="px-10 mt-6 pb-10 flex-1">
+        <div
+          className="rounded-[12px] h-full flex items-center justify-center text-muted-soft text-[14px]"
+          style={{border:'1.5px dashed var(--line-strong)', minHeight:'320px'}}
+        >
+          Nothing to show here in the prototype
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ClientsView({ clients, onAdd }) {
+  return (
+    <div className="h-full overflow-auto">
+      <div className="px-10 pt-10 pb-2 flex items-start justify-between gap-6">
+        <div>
+          <h1 className="text-[28px] font-semibold tracking-[-0.02em] leading-tight">Clients</h1>
+          <p className="mt-1 text-[13.5px] text-muted">
+            {clients.length === 0 ? 'No clients yet' : `${clients.length} ${clients.length===1?'client':'clients'}`}
+          </p>
+        </div>
+        <button
+          onClick={onAdd}
+          className="px-4 h-9 rounded-[8px] text-white text-[13.5px] font-medium hover:bg-ink-soft transition"
+          style={{background:'var(--ink)'}}
+        >
+          New client
+        </button>
+      </div>
+      <div className="px-10 mt-6 pb-10">
+        {clients.length === 0 ? (
+          <div className="rounded-[12px] flex items-center justify-center text-muted-soft text-[14px] h-[320px]" style={{border:'1.5px dashed var(--line-strong)'}}>
+            No clients yet — they'll appear after you create your first job
+          </div>
+        ) : (
+          <ul className="rounded-[12px] overflow-hidden" style={{border:'1px solid var(--line)'}}>
+            {clients.map((c, i) => (
+              <li key={c.id} className="flex items-center justify-between px-5 py-3.5" style={{borderTop: i===0 ? 'none':'1px solid var(--line)'}}>
+                <span className="text-[14px] text-ink font-medium">{c.name}</span>
+                <span className="text-[13px] text-muted-soft">{c.address}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   SHARED PRIMITIVES
+   ────────────────────────────────────────────────────────────────── */
+function ModalShell({ children, onClose }) {
+  // Lock scroll while open
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onClose]);
+  return (
+    <div
+      className="fixed inset-0 z-40 flex items-start justify-center pt-12 pb-12 px-6 overflow-auto animate-fade-in"
+      style={{background:'rgba(255,255,255,0.78)', backdropFilter:'blur(2px)'}}
+      onClick={onClose}
+    >
+      <button
+        aria-label="Close"
+        onClick={onClose}
+        className="fixed top-7 left-7 w-9 h-9 rounded-full bg-white border border-line-strong flex items-center justify-center hover:bg-cream-soft transition"
+      >
+        <Ic.close width="14" height="14" />
+      </button>
+      <div className="relative" onClick={(e) => e.stopPropagation()}>{children}</div>
+    </div>
+  );
+}
+
+function Card({ children, className='' }) {
+  return (
+    <div className={`w-[560px] max-w-full bg-white rounded-[14px] shadow-modal animate-scale-in ${className}`}>
+      {children}
+    </div>
+  );
+}
+
+function SummaryCard({ label, value, icon, onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={!onClick}
+      className={`w-full bg-white rounded-[12px] px-5 py-3.5 flex items-center justify-between text-left animate-scale-in ${onClick ? 'hover:bg-cream-soft cursor-pointer' : 'cursor-default'}`}
+      style={{boxShadow:'0 0 0 1px var(--line)'}}
+    >
+      <span className="flex items-center gap-2 text-[13.5px] text-ink">
+        <span className="text-muted">{icon}</span>
+        <span className="font-medium">{label}</span>
+      </span>
+      <span className="text-[13.5px] text-ink">{value}</span>
+    </button>
+  );
+}
+
+function Field({ label, children }) {
+  return (
+    <label className="block">
+      <span className="block text-[12.5px] font-medium text-ink mb-1.5">{label}</span>
+      {children}
+    </label>
+  );
+}
+
+function Input({ value, onChange, placeholder, autoFocus }) {
+  return (
+    <input
+      autoFocus={autoFocus}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
+      className="w-full h-10 px-3 rounded-[8px] border border-line-strong text-[13.5px] placeholder-muted-soft bg-white"
+    />
+  );
+}
+
+function Textarea({ value, onChange, placeholder }) {
+  return (
+    <textarea
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
+      rows={3}
+      className="w-full px-3 py-2.5 rounded-[8px] border border-line-strong text-[13.5px] placeholder-muted-soft bg-white resize-none"
+    />
+  );
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   TOAST  (matches screen 5)
+   ────────────────────────────────────────────────────────────────── */
+function Toast({ toast, onDismiss, onView }) {
+  return (
+    <div
+      className="fixed left-1/2 bottom-7 z-50 flex items-center gap-3 pl-4 pr-1 py-1.5 rounded-full text-white text-[13.5px] animate-slide-up"
+      style={{background:'var(--ink)', boxShadow:'0 8px 24px rgba(0,0,0,0.25)'}}
+    >
+      <span className="flex items-center gap-2">
+        <span className="w-4 h-4 rounded-full flex items-center justify-center" style={{background:'rgba(255,255,255,0.18)'}}>
+          <Ic.check width="11" height="11" />
+        </span>
+        {toast.message}
+      </span>
+      {toast.jobId && (
+        <button
+          onClick={onView}
+          className="h-7 px-3 rounded-full bg-white text-ink text-[12.5px] font-medium hover:bg-cream transition"
+        >
+          View
+        </button>
+      )}
+    </div>
+  );
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   DEMO PANEL  (helper for prototype navigation)
+   ────────────────────────────────────────────────────────────────── */
+function DemoPanel({ onLoad, onLoadStatuses, onReset, onSeedClients, emptyVariant, setEmptyVariant }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="fixed bottom-5 right-5 z-50">
+      {open && (
+        <div className="mb-2 w-[280px] bg-white rounded-[12px] p-3 shadow-pop animate-fade-up">
+          <div className="text-[12px] font-semibold text-ink mb-1">Prototype controls</div>
+          <p className="text-[11.5px] text-muted leading-snug mb-3">Quickly switch between prototype states.</p>
+          <div className="flex flex-col gap-1.5">
+            <button
+              onClick={onLoad}
+              className="h-8 px-3 rounded-[7px] text-white text-[12.5px] font-medium hover:bg-ink-soft transition text-left"
+              style={{background:'var(--ink)'}}
+            >
+              Load full demo data (screen 10)
+            </button>
+            <button
+              onClick={onLoadStatuses}
+              className="h-8 px-3 rounded-[7px] border border-line-strong text-[12.5px] text-ink hover:bg-cream-soft transition text-left"
+            >
+              Load statuses showcase
+            </button>
+            <button
+              onClick={onSeedClients}
+              className="h-8 px-3 rounded-[7px] border border-line-strong text-[12.5px] text-ink hover:bg-cream-soft transition text-left"
+            >
+              Seed sample clients only
+            </button>
+            <button
+              onClick={onReset}
+              className="h-8 px-3 rounded-[7px] border border-line-strong text-[12.5px] text-ink hover:bg-cream-soft transition text-left flex items-center gap-1.5"
+            >
+              <Ic.reset width="13" height="13" />
+              Reset workspace
+            </button>
+          </div>
+
+          <div className="mt-3 pt-3" style={{borderTop:'1px solid var(--line)'}}>
+            <div className="text-[11px] uppercase tracking-wide text-muted-soft mb-1.5">Empty Today copy</div>
+            <div className="flex p-0.5 rounded-[8px] bg-cream-soft" style={{boxShadow:'0 0 0 1px var(--line)'}}>
+              {[
+                { id:'original', label:'Original' },
+                { id:'alternative', label:'Alternative' },
+              ].map(opt => {
+                const active = emptyVariant === opt.id;
+                return (
+                  <button
+                    key={opt.id}
+                    onClick={() => setEmptyVariant(opt.id)}
+                    className={`flex-1 h-7 rounded-[6px] text-[12px] font-medium transition ${active ? 'bg-white text-ink' : 'text-muted hover:text-ink'}`}
+                    style={active ? {boxShadow:'0 1px 2px rgba(0,0,0,0.06), 0 0 0 1px var(--line)'} : {}}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+      <button
+        onClick={() => setOpen(v=>!v)}
+        className="h-9 px-3.5 rounded-full bg-white text-ink text-[12.5px] font-medium hover:bg-cream-soft transition flex items-center gap-1.5"
+        style={{boxShadow:'0 4px 14px rgba(0,0,0,0.10), 0 0 0 1px var(--line-strong)'}}
+      >
+        <span className="w-1.5 h-1.5 rounded-full" style={{background: open ? '#22C55E' : '#9CA3AF'}}></span>
+        Demo controls
+      </button>
+    </div>
+  );
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   MOUNT
+   ────────────────────────────────────────────────────────────────── */
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
 </body>
 </html>
