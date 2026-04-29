@@ -425,6 +425,8 @@ function App() {
   const [toast, setToast]       = useState(null);
   const [highlightJob, setHighlightJob] = useState(null);
   const [emptyVariant, setEmptyVariant] = useState('original');
+  const [selectedJobId, setSelectedJobId] = useState(null);
+  const [returnView, setReturnView]       = useState('today');
 
   /* ── Schedule job flow ── */
   const startScheduleJob = useCallback(() => {
@@ -504,14 +506,18 @@ function App() {
     updateJob(jobId, { status });
     setModal(null);
     const labels = { done:'Marked as done', in_progress:'Marked in progress', scheduled:'Reopened' };
-    pushToast(labels[status] || 'Status updated', jobId);
+    pushToast(labels[status] || 'Status updated');
   };
   const handleDeleteJob = (jobId) => {
     deleteJob(jobId);
     setModal(null);
     pushToast('Job deleted');
   };
-  const openJobDetail = (job) => setModal({ kind:'detail', jobId: job.id });
+  const openJobDetail = (job) => {
+    setReturnView(view);
+    setSelectedJobId(job.id);
+  };
+  const closeJobDetail = () => setSelectedJobId(null);
 
   /* ── Toast ── */
   const pushToast = (message, jobId=null, viewTarget=null) => {
@@ -566,46 +572,76 @@ function App() {
   return (
     <div className="h-full w-full p-4 md:p-6 flex items-stretch justify-center" style={{background:'var(--bg-page)'}}>
       <div className="w-full max-w-[1180px] h-full flex bg-white rounded-[14px] overflow-hidden" style={{boxShadow:'0 1px 0 rgba(0,0,0,0.04), 0 0 0 1px rgba(0,0,0,0.06)'}}>
-        <Sidebar view={view} setView={setView} hasJobs={jobs.length>0} />
+        <Sidebar view={view} setView={(v) => { setView(v); setSelectedJobId(null); }} hasJobs={jobs.length>0} />
         <main className="flex-1 relative overflow-hidden">
-          {view === 'today' && (
-            <TodayView
-              jobs={jobs.filter(j => j.dateISO === todayISO())}
-              workers={workers}
-              setJobs={setJobs}
-              onSchedule={startScheduleJob}
-              onAddEstimate={() => pushToast('Estimates — coming soon')}
-              onOpenJob={openJobDetail}
-              highlightJob={highlightJob}
-              setHighlightJob={setHighlightJob}
-              setView={setView}
-              emptyVariant={emptyVariant}
-            />
-          )}
-          {view === 'jobs' && (
-            <JobsView
-              jobs={jobs}
-              workers={workers}
-              setJobs={setJobs}
-              onSchedule={startScheduleJob}
-              onOpenJob={openJobDetail}
-              highlightJob={highlightJob}
-              setView={setView}
-            />
-          )}
-          {view === 'crew' && (
-            <CrewView
-              workers={workers}
-              setWorkers={setWorkers}
-              setModal={setModal}
-              pushToast={pushToast}
-            />
-          )}
-          {view === 'clients' && (
-            <ClientsView clients={clients} onAdd={() => setModal({ kind:'newClient' })} />
-          )}
-          {(view === 'invoices' || view === 'estimates' || view === 'priceBook') && (
-            <PlaceholderView label={NAV_ITEMS.find(i=>i.id===view)?.label || ''} />
+          {selectedJobId ? (
+            (() => {
+              const job = jobs.find(j => j.id === selectedJobId);
+              if (!job) { setSelectedJobId(null); return null; }
+              return (
+                <JobScreen
+                  job={job}
+                  workers={workers}
+                  allJobs={jobs}
+                  returnView={returnView}
+                  onBack={closeJobDetail}
+                  onChangeStatus={(status) => handleStatusChange(job.id, status)}
+                  onReschedule={() => setModal({
+                    kind:'when',
+                    editJobId: job.id,
+                    client: { name: job.client },
+                    title: job.title,
+                    initialDateISO: job.dateISO,
+                    initialTime: job.time === 'Unscheduled' ? null : job.time,
+                  })}
+                  onAssign={(workerId, workerName) => updateJob(job.id, { assigneeId: workerId, assigneeName: workerName })}
+                  onUnassign={() => updateJob(job.id, { assigneeId: null, assigneeName: undefined })}
+                  setView={(v) => { setView(v); setSelectedJobId(null); }}
+                />
+              );
+            })()
+          ) : (
+            <>
+              {view === 'today' && (
+                <TodayView
+                  jobs={jobs.filter(j => j.dateISO === todayISO())}
+                  workers={workers}
+                  setJobs={setJobs}
+                  onSchedule={startScheduleJob}
+                  onAddEstimate={() => pushToast('Estimates — coming soon')}
+                  onOpenJob={openJobDetail}
+                  highlightJob={highlightJob}
+                  setHighlightJob={setHighlightJob}
+                  setView={setView}
+                  emptyVariant={emptyVariant}
+                />
+              )}
+              {view === 'jobs' && (
+                <JobsView
+                  jobs={jobs}
+                  workers={workers}
+                  setJobs={setJobs}
+                  onSchedule={startScheduleJob}
+                  onOpenJob={openJobDetail}
+                  highlightJob={highlightJob}
+                  setView={setView}
+                />
+              )}
+              {view === 'crew' && (
+                <CrewView
+                  workers={workers}
+                  setWorkers={setWorkers}
+                  setModal={setModal}
+                  pushToast={pushToast}
+                />
+              )}
+              {view === 'clients' && (
+                <ClientsView clients={clients} onAdd={() => setModal({ kind:'newClient' })} />
+              )}
+              {(view === 'invoices' || view === 'estimates' || view === 'priceBook') && (
+                <PlaceholderView label={NAV_ITEMS.find(i=>i.id===view)?.label || ''} />
+              )}
+            </>
           )}
         </main>
       </div>
@@ -658,30 +694,6 @@ function App() {
           }}
         />
       )}
-      {modal?.kind === 'detail' && (() => {
-        const job = jobs.find(j => j.id === modal.jobId);
-        if (!job) return null;
-        return (
-          <JobDetailModal
-            job={job}
-            workers={workers}
-            allJobs={jobs}
-            onClose={() => setModal(null)}
-            onChangeStatus={(status) => handleStatusChange(job.id, status)}
-            onReschedule={() => setModal({
-              kind:'when',
-              editJobId: job.id,
-              client: { name: job.client },
-              title: job.title,
-              initialDateISO: job.dateISO,
-              initialTime: job.time === 'Unscheduled' ? null : job.time,
-            })}
-            onAssign={(workerId, workerName) => updateJob(job.id, { assigneeId: workerId, assigneeName: workerName })}
-            onUnassign={() => updateJob(job.id, { assigneeId: null, assigneeName: undefined })}
-            setView={setView}
-          />
-        );
-      })()}
       {modal?.kind === 'inviteCrew' && (
         <InviteCrewModal
           onClose={() => setModal(null)}
@@ -774,7 +786,9 @@ function Sidebar({ view, setView }) {
 function TodayView({ jobs, workers, setJobs, onSchedule, onAddEstimate, onOpenJob, highlightJob, setHighlightJob, setView, emptyVariant }) {
   const total = jobs.length;
   const done = jobs.filter(j => j.status === 'done').length;
+  const remaining = total - done;
   const subtitle = total === 0 ? "You're all caught up" : `${done} of ${total} ${total===1?'visit':'visits'} done`;
+  const allDone = total > 0 && remaining === 0;
 
   return (
     <div className="h-full overflow-auto">
@@ -801,8 +815,10 @@ function TodayView({ jobs, workers, setJobs, onSchedule, onAddEstimate, onOpenJo
       </div>
 
       <div className="px-10 mt-6 pb-10">
-        {jobs.length === 0 ? (
+        {total === 0 ? (
           <EmptyToday variant={emptyVariant} />
+        ) : allDone ? (
+          <AllDoneToday count={done} />
         ) : (
           <JobList
             jobs={jobs}
@@ -813,6 +829,21 @@ function TodayView({ jobs, workers, setJobs, onSchedule, onAddEstimate, onOpenJo
             setView={setView}
           />
         )}
+      </div>
+    </div>
+  );
+}
+
+function AllDoneToday({ count }) {
+  return (
+    <div
+      className="rounded-[12px] flex flex-col items-center justify-center text-center px-6 leading-relaxed gap-2"
+      style={{height:'min(60vh, 480px)', border:'1.5px dashed var(--line-strong)'}}
+    >
+      <Ic.check width="22" height="22" className="text-muted" />
+      <div className="text-[14px] text-ink font-medium">All visits done for today</div>
+      <div className="text-[13px] text-muted-soft">
+        {count} {count === 1 ? 'visit' : 'visits'} completed
       </div>
     </div>
   );
@@ -927,8 +958,9 @@ function JobsView({ jobs, workers, setJobs, onSchedule, onOpenJob, highlightJob,
    ────────────────────────────────────────────────────────────────── */
 function JobList({ jobs, workers, setJobs, onOpenJob, highlightJob, setView }) {
   const items = useMemo(() => {
-    const sorted = [...jobs].sort((a,b)=>timeKey(a.time)-timeKey(b.time));
-    return sorted;
+    return [...jobs]
+      .filter(j => j.status !== 'done')
+      .sort((a,b)=>timeKey(a.time)-timeKey(b.time));
   }, [jobs]);
 
   const nowIndex = items.findIndex(j => timeKey(j.time) > NOW_KEY);
@@ -1514,85 +1546,25 @@ function WhenModal({ client, title, mode='create', initialDateISO, initialTime, 
 }
 
 /* ──────────────────────────────────────────────────────────────────
-   JOB DETAIL MODAL — open a visit, change status, reschedule, delete
+   JOB SCREEN — placeholder details page
    ────────────────────────────────────────────────────────────────── */
-function JobDetailModal({ job, workers, allJobs, onClose, onChangeStatus, onReschedule }) {
-  const status = effectiveStatus(job);
-  const isDone = status === 'done';
-  const isInProgress = status === 'in_progress';
-
-  const whenLabel = (() => {
-    if (!job.dateISO) return 'Unscheduled';
-    const dl = friendlyDate(job.dateISO);
-    if (job.time === 'Unscheduled') return dl;
-    return `${dl}, ${job.time}`;
-  })();
-
+function JobScreen({ job, returnView, onBack }) {
+  const backLabel = returnView === 'jobs' ? 'Back to Jobs' : 'Back to Today';
   return (
-    <ModalShell onClose={onClose}>
-      <Card>
-        <header className="px-7 pt-6 pb-4">
-          <StatusPill status={status} />
-          <h2 className="mt-3 text-[22px] font-semibold tracking-[-0.01em] leading-tight">{job.title}</h2>
-          <p className="text-[13.5px] text-muted mt-0.5">{job.client}</p>
-        </header>
+    <div className="h-full overflow-auto animate-fade-in">
+      <div className="px-10 pt-7 pb-2">
+        <button
+          onClick={onBack}
+          className="inline-flex items-center gap-1.5 text-[13px] text-muted hover:text-ink transition"
+        >
+          <Ic.chevronLeft width="14" height="14" />
+          {backLabel}
+        </button>
+      </div>
 
-        <div className="px-7 py-4 flex flex-col gap-2.5" style={{borderTop:'1px solid var(--line)'}}>
-          <DetailRow icon={<Ic.today width="14" height="14" />} label="When" value={whenLabel} />
-          <DetailRow
-            icon={<Ic.userBadge width="14" height="14" />}
-            label="Worker"
-            value={job.assigneeName || <span className="text-muted-soft">Unassigned</span>}
-          />
-        </div>
-
-        <div className="px-7 py-4 flex flex-wrap items-center gap-2" style={{borderTop:'1px solid var(--line)'}}>
-          <button
-            onClick={onReschedule}
-            className="h-9 px-4 rounded-[8px] border border-line-strong text-[13px] text-ink hover:bg-cream-soft transition"
-          >
-            Reschedule
-          </button>
-          {!isDone && !isInProgress && (
-            <button
-              onClick={() => onChangeStatus('in_progress')}
-              className="h-9 px-4 rounded-[8px] border border-line-strong text-[13px] text-ink hover:bg-cream-soft transition"
-            >
-              Mark in progress
-            </button>
-          )}
-          {!isDone && (
-            <button
-              onClick={() => onChangeStatus('done')}
-              className="h-9 px-4 rounded-[8px] text-white text-[13px] font-medium hover:bg-ink-soft transition ml-auto inline-flex items-center gap-1.5"
-              style={{background:'var(--ink)'}}
-            >
-              <Ic.check width="14" height="14" />
-              Mark done
-            </button>
-          )}
-          {isDone && (
-            <button
-              onClick={() => onChangeStatus('scheduled')}
-              className="h-9 px-4 rounded-[8px] border border-line-strong text-[13px] text-ink hover:bg-cream-soft transition ml-auto"
-            >
-              Reopen
-            </button>
-          )}
-        </div>
-      </Card>
-    </ModalShell>
-  );
-}
-
-function DetailRow({ icon, label, value }) {
-  return (
-    <div className="flex items-center gap-3">
-      <span className="w-16 text-[12.5px] text-muted flex items-center gap-1.5">
-        <span className="text-muted-soft">{icon}</span>
-        {label}
-      </span>
-      <span className="text-[13.5px] text-ink">{value}</span>
+      <div className="px-10 pt-4">
+        <h1 className="text-[28px] font-semibold tracking-[-0.02em] leading-tight">Job Details Page</h1>
+      </div>
     </div>
   );
 }
