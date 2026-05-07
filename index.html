@@ -1,1953 +1,1346 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Brick Builder — Prototype</title>
-<script>
-  // Tailwind CDN emits a "should not be used in production" notice meant for
-  // real deployments. This is a single-file prototype, so we filter only that
-  // exact message — other warnings still surface normally.
-  (function () {
-    const _warn = console.warn;
-    console.warn = function (...args) {
-      const msg = args[0];
-      if (typeof msg === 'string' && msg.includes('cdn.tailwindcss.com should not be used in production')) return;
-      _warn.apply(console, args);
-    };
-  })();
-</script>
-<script src="https://cdn.tailwindcss.com"></script>
-<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;450;500;600;700&display=swap" rel="stylesheet">
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>MBR · April 2026 · Field Service Product</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:ital,wght@0,300..900;1,300..900&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
 <style>
-  :root {
-    --cream: #F8F3E8;
-    --cream-soft: #FBF7EE;
-    --cream-hover: #F4EEDE;
-    --ink: #0A0A0A;
-    --ink-soft: #1A1A1A;
-    --line: #ECECEC;
-    --line-strong: #DCDCDC;
-    --muted: #8A8A8A;
-    --muted-soft: #AFAFAF;
-    --bg-page: #EDEDED;
-    --green-soft: #E6F4EA;
-    --green-text: #2E7D4F;
-    --red-soft: #FCE4E6;
-    --red-text: #B53341;
-    --blue-soft: #E4ECF6;
-    --blue-text: #2D5BA1;
+  /* ---------- TOKENS ---------- */
+  :root{
+    --bg-cream:    #EFE9DC;
+    --bg-cream-2:  #E8E1D1;
+    --bg-dark:     #1A1B1E;
+    --ink:         #14140F;
+    --ink-soft:    #5E5E55;
+    --ink-mute:    #8C8C82;
+    --rule:        #14140F;
+    --warm-1:      #F4A85C;
+    --warm-2:      #E07B2D;
+    --warm-3:      #FFD89F;
+    --slide-w:     1280px;
+    --slide-h:     720px;
+    --pad:         88px;
   }
-  html, body, #root { height: 100%; }
-  body {
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
-    -webkit-font-smoothing: antialiased;
-    background: var(--bg-page);
+
+  *{ box-sizing: border-box; }
+  html, body{
+    margin: 0; padding: 0;
+    background: #0c0c0d;
     color: var(--ink);
-    font-feature-settings: "ss01", "cv11";
+    font-family: "Hanken Grotesk", system-ui, sans-serif;
+    font-feature-settings: "ss01","ss02","cv11";
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+    height: 100vh; width: 100vw;
+  }
+
+  /* ---------- STAGE / SCALING ---------- */
+  .stage{
+    position: fixed; inset: 0;
+    display: grid; place-items: center;
+    overflow: hidden;
+  }
+  .deck{
+    width: var(--slide-w);
+    height: var(--slide-h);
+    position: relative;
+    transform-origin: center center;
+  }
+
+  /* ---------- SLIDE BASE ---------- */
+  .slide{
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    background: var(--bg-cream);
+    padding: var(--pad);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity .55s cubic-bezier(.2,.7,.2,1);
+    overflow: hidden;
+  }
+  .slide.is-active{
+    opacity: 1;
+    visibility: visible;
+  }
+  .slide.dark{
+    background: var(--bg-dark);
+    color: #EDEAE0;
+  }
+  .slide.dark::after{
+    /* warm radial glow at bottom */
+    content: "";
+    position: absolute;
+    left: 50%; bottom: -10%;
+    width: 140%; height: 75%;
+    transform: translateX(-50%);
+    background:
+      radial-gradient(ellipse 55% 85% at 50% 100%,
+        rgba(255,228,170,.95) 0%,
+        rgba(255,196,120,.85) 12%,
+        rgba(244,168,92,.62) 26%,
+        rgba(224,123,45,.40) 44%,
+        rgba(120,52,18,.20) 64%,
+        rgba(0,0,0,0) 82%);
+    filter: blur(18px);
+    pointer-events: none;
+    z-index: 0;
+  }
+  .slide > *{ position: relative; z-index: 1; }
+
+  /* ---------- COMMON TYPOGRAPHY ---------- */
+  .eyebrow{
+    font-size: 13px;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    font-weight: 600;
+    color: var(--ink-soft);
+  }
+  .dark .eyebrow{ color: #C4BEAC; }
+
+  h1.display{
+    font-weight: 800;
+    font-size: 96px;
+    line-height: .95;
+    letter-spacing: -0.035em;
+    margin: 0;
+  }
+  h1.display-xl{
+    font-weight: 800;
+    font-size: 132px;
+    line-height: .92;
+    letter-spacing: -0.04em;
+    margin: 0;
+  }
+  h2.title{
+    font-weight: 800;
+    font-size: 64px;
+    line-height: 1.0;
+    letter-spacing: -0.025em;
+    margin: 0;
+  }
+  h3.sub{
+    font-weight: 700;
+    font-size: 26px;
+    line-height: 1.15;
+    letter-spacing: -0.01em;
+    margin: 0;
+  }
+  .lede{
+    font-size: 22px;
+    line-height: 1.45;
+    color: var(--ink-soft);
+    max-width: 56ch;
+    margin: 0;
+  }
+  .dark .lede{ color: #BAB3A1; }
+  .body{
+    font-size: 17px;
+    line-height: 1.5;
+    color: var(--ink-soft);
+  }
+  .serif-it{
+    font-family: "Instrument Serif", serif;
+    font-style: italic;
+    font-weight: 400;
     letter-spacing: -0.005em;
   }
-  /* Tailwind doesn't know our cream — provide utility classes */
-  .bg-cream { background: var(--cream); }
-  .bg-cream-soft { background: var(--cream-soft); }
-  .bg-cream-hover { background: var(--cream-hover); }
-  .text-ink { color: var(--ink); }
-  .text-muted { color: var(--muted); }
-  .text-muted-soft { color: var(--muted-soft); }
-  .bg-ink { background-color: var(--ink); }
-  .bg-ink-soft { background-color: var(--ink-soft); }
-  .border-line { border-color: var(--line); }
-  .border-line-strong { border-color: var(--line-strong); }
-  .placeholder-muted-soft::placeholder { color: var(--muted-soft); }
-  .hover\:bg-ink-soft:hover { background-color: var(--ink-soft); }
-  .hover\:bg-cream-soft:hover { background-color: var(--cream-soft); }
-  .hover\:bg-cream:hover { background-color: var(--cream); }
-  .hover\:text-ink:hover { color: var(--ink); }
-  .ring-ink { box-shadow: 0 0 0 1.5px var(--ink) inset; }
-  .ring-ink-soft { box-shadow: 0 0 0 1px var(--line-strong) inset; }
 
-  /* Subtle shadows */
-  .shadow-pop {
-    box-shadow:
-      0 1px 2px rgba(0,0,0,0.04),
-      0 8px 24px rgba(0,0,0,0.08),
-      0 0 0 1px rgba(0,0,0,0.04);
+  /* ---------- SLIDE FRAME (header + footer) ---------- */
+  .frame-head{
+    position: absolute;
+    top: var(--pad); left: var(--pad); right: var(--pad);
+    display: flex; justify-content: space-between; align-items: baseline;
   }
-  .shadow-card {
-    box-shadow: 0 0 0 1px var(--line);
+  .frame-foot{
+    position: absolute;
+    bottom: var(--pad); left: var(--pad); right: var(--pad);
+    display: flex; justify-content: space-between; align-items: baseline;
+    font-size: 13px;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    font-weight: 600;
+    color: var(--ink-mute);
   }
-  .shadow-modal {
-    box-shadow:
-      0 10px 30px rgba(0,0,0,0.12),
-      0 2px 6px rgba(0,0,0,0.06),
-      0 0 0 1px rgba(0,0,0,0.05);
-  }
-  .shadow-toast {
-    box-shadow:
-      0 8px 24px rgba(0,0,0,0.18),
-      0 2px 8px rgba(0,0,0,0.10);
+  .dark .frame-foot{ color: #888270; }
+  .brand{
+    font-weight: 800; letter-spacing: -0.02em;
+    font-size: 14px;
+    text-transform: none;
   }
 
-  /* Animations */
-  @keyframes fadeUp {
-    from { opacity: 0; transform: translateY(6px); }
-    to { opacity: 1; transform: translateY(0); }
+  /* ---------- DOTTED RULE ---------- */
+  .dot-rule{
+    border: none;
+    border-top: 1.5px dotted var(--ink);
+    opacity: .35;
+    margin: 0;
   }
-  @keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
-  }
-  @keyframes scaleIn {
-    from { opacity: 0; transform: scale(0.97); }
-    to { opacity: 1; transform: scale(1); }
-  }
-  @keyframes slideUp {
-    from { opacity: 0; transform: translate(-50%, 20px); }
-    to { opacity: 1; transform: translate(-50%, 0); }
-  }
-  .animate-fade-up { animation: fadeUp 220ms ease-out both; }
-  .animate-fade-in { animation: fadeIn 180ms ease-out both; }
-  .animate-scale-in { animation: scaleIn 180ms ease-out both; }
-  .animate-slide-up { animation: slideUp 260ms cubic-bezier(0.2,0.7,0.2,1) both; }
 
-  /* Disable Tailwind's default focus rings, use ours */
-  button, input, textarea { outline: none; }
-  input:focus, textarea:focus {
-    box-shadow: 0 0 0 1.5px var(--ink) inset;
-    border-color: transparent !important;
+  /* ---------- COVER ---------- */
+  .cover-stack{
+    position: absolute;
+    inset: 0;
+    display: flex; flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
   }
-  /* Custom scrollbar inside menus */
-  .menu-scroll::-webkit-scrollbar { width: 6px; }
-  .menu-scroll::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 3px; }
+  .cover-stack .small{
+    font-size: 30px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: #EDEAE0;
+    margin-bottom: 4px;
+  }
+  .cover-stack .big{
+    font-size: 156px;
+    font-weight: 800;
+    letter-spacing: -0.045em;
+    line-height: .9;
+    color: #EDEAE0;
+  }
+  .cover-meta{
+    position: absolute;
+    bottom: 60px; left: 50%;
+    transform: translateX(-50%);
+    font-size: 14px;
+    letter-spacing: .28em;
+    text-transform: uppercase;
+    color: #EDEAE0;
+    font-weight: 600;
+    opacity: .9;
+  }
 
-  /* Hide root scrollbar to avoid flicker */
-  body { overflow: hidden; }
+  /* ---------- WHAT SHIPPED — 3 CARDS ---------- */
+  .ship-grid{
+    position: absolute;
+    left: var(--pad); right: var(--pad);
+    bottom: 150px;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 28px;
+  }
+  .ship-card{
+    border-top: 1.5px solid var(--ink);
+    padding-top: 18px;
+    display: flex; flex-direction: column; gap: 12px;
+    min-height: 200px;
+  }
+  .ship-card .pill{
+    align-self: flex-start;
+    font-size: 11px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    font-weight: 700;
+    padding: 5px 10px;
+    border-radius: 999px;
+    background: rgba(20,20,15,.06);
+    color: var(--ink);
+  }
+  .ship-card .pill.live{
+    background: #1A1B1E; color: #EDEAE0;
+  }
+  .ship-card .pill.warm{
+    background: var(--warm-2); color: #fff;
+  }
+  .ship-card h4{
+    font-weight: 800;
+    font-size: 28px;
+    line-height: 1.05;
+    letter-spacing: -0.015em;
+    margin: 0;
+  }
+  .ship-card p{
+    font-size: 16px;
+    line-height: 1.45;
+    color: var(--ink-soft);
+    margin: 0;
+  }
+
+  /* ---------- WHAT WE LEARNED ---------- */
+  .learned{
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 24px;
+    margin-top: 70px;
+    max-width: 1000px;
+  }
+  .learned .stmt{
+    font-weight: 800;
+    font-size: 72px;
+    line-height: .95;
+    letter-spacing: -0.035em;
+  }
+  .learned .stmt .muted{ color: var(--ink-mute); }
+  .learned .twin{
+    display: flex; gap: 56px; align-items: flex-end;
+    margin-top: 4px;
+  }
+  .learned .twin > div{ flex: 1; }
+  .learned blockquote{
+    font-size: 22px;
+    line-height: 1.4;
+    color: var(--ink-soft);
+    border-left: 2px solid var(--warm-2);
+    padding-left: 18px;
+    margin: 8px 0 0 0;
+    max-width: 780px;
+    font-weight: 400;
+  }
+
+  /* ---------- HOW WE'LL LEARN — 3 STEPS ---------- */
+  .steps{
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 32px;
+    margin-top: 76px;
+  }
+  .step{
+    border-top: 1.5px solid var(--ink);
+    padding-top: 20px;
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  .step .num{
+    font-family: "Instrument Serif", serif;
+    font-style: italic;
+    font-size: 48px;
+    line-height: 1;
+    color: var(--warm-2);
+    margin-bottom: -2px;
+  }
+  .step h5{
+    font-weight: 800;
+    font-size: 24px;
+    margin: 0;
+    letter-spacing: -0.01em;
+  }
+  .step p{
+    font-size: 15px;
+    line-height: 1.5;
+    color: var(--ink-soft);
+    margin: 0;
+  }
+  .kicker{
+    margin-top: 64px;
+    font-size: 22px;
+    color: var(--ink-soft);
+    max-width: 620px;
+    line-height: 1.4;
+  }
+
+  /* ---------- ONBOARDING SCREENS ---------- */
+  .three-screens{
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 28px;
+    margin-top: 44px;
+    align-items: stretch;
+  }
+  .three-screens figure{
+    margin: 0;
+    display: flex; flex-direction: column;
+    gap: 12px;
+  }
+  .three-screens img{
+    width: 100%;
+    aspect-ratio: 4 / 5;
+    object-fit: cover;
+    object-position: center 38%;
+    border-radius: 10px;
+    border: 1px solid rgba(20,20,15,.10);
+    background: #fff;
+  }
+  .three-screens figcaption{
+    font-size: 12px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    font-weight: 600;
+  }
+
+  /* ---------- INDUSTRY MIX (full-bleed chart) ---------- */
+  .chart-fullbleed{
+    position: absolute;
+    left: var(--pad); right: var(--pad);
+    top: 130px; bottom: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .chart-fullbleed img{
+    max-width: 100%;
+    max-height: 100%;
+    width: auto; height: auto;
+    object-fit: contain;
+    border-radius: 8px;
+    border: 1px solid rgba(20,20,15,.10);
+    background: #fff;
+  }
+
+  /* ---------- FUNNEL SLIDE ---------- */
+  .funnel-row{
+    display: grid;
+    grid-template-columns: 1.25fr 1fr;
+    gap: 48px;
+    margin-top: 32px;
+    align-items: center;
+  }
+  .funnel-row img{
+    width: 100%;
+    border-radius: 6px;
+    border: 1px solid rgba(20,20,15,.08);
+    background: #fff;
+  }
+  .big-stat{
+    font-weight: 800;
+    font-size: 168px;
+    line-height: .85;
+    letter-spacing: -0.05em;
+  }
+  .big-stat sub{
+    font-size: 26px;
+    font-weight: 600;
+    color: var(--ink-soft);
+    margin-left: 8px;
+    letter-spacing: 0;
+    bottom: 0;
+  }
+  .funnel-row .insight p{
+    font-size: 19px;
+    line-height: 1.4;
+    color: var(--ink-soft);
+    margin: 18px 0 0 0;
+    max-width: 30ch;
+  }
+  .funnel-row .insight p strong{
+    color: var(--ink);
+    font-weight: 700;
+  }
+
+  /* ---------- HYPOTHESIS DARK SLIDE ---------- */
+  .hyp-stack{
+    position: absolute;
+    inset: var(--pad);
+    display: flex; flex-direction: column;
+    justify-content: center;
+  }
+  .hyp-stack .eyebrow-dark{
+    font-size: 13px;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    font-weight: 600;
+    color: #BAB3A1;
+    margin-bottom: 18px;
+  }
+  .hyp-stack h2{
+    font-weight: 800;
+    font-size: 88px;
+    line-height: .96;
+    letter-spacing: -0.035em;
+    margin: 0;
+    color: #EDEAE0;
+    max-width: 16ch;
+  }
+  .hyp-stack h2 em{
+    font-family: "Instrument Serif", serif;
+    font-style: italic;
+    font-weight: 400;
+    color: var(--warm-1);
+  }
+  .hyp-stack .legend{
+    display: flex; gap: 56px; margin-top: 40px;
+    max-width: 880px;
+  }
+  .hyp-stack .legend > div{
+    flex: 1;
+    border-top: 1px solid rgba(255,255,255,.18);
+    padding-top: 14px;
+  }
+  .hyp-stack .legend .label{
+    font-size: 11px;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    font-weight: 600;
+    color: #948C7A;
+    margin-bottom: 4px;
+  }
+  .hyp-stack .legend .text{
+    color: #DAD3C0;
+    font-size: 16px; line-height: 1.4;
+  }
+
+  /* ---------- WEB FLOW (4 frames) ---------- */
+  .flow-row{
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    gap: 18px;
+    margin-top: 44px;
+    align-items: end;
+  }
+  .flow-row figure{
+    margin: 0; display: flex; flex-direction: column; gap: 12px;
+  }
+  .flow-row img{
+    width: 100%;
+    aspect-ratio: 4 / 5;
+    object-fit: contain;
+    object-position: center;
+    border-radius: 8px;
+    border: 1px solid rgba(20,20,15,.10);
+    background: #fff;
+    padding: 12px;
+  }
+  .flow-row figcaption{
+    font-size: 11px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    font-weight: 600;
+    display: flex; align-items: baseline; gap: 8px;
+  }
+  .flow-row figcaption .step-n{
+    font-family: "Instrument Serif", serif;
+    font-style: italic;
+    font-size: 18px;
+    color: var(--warm-2);
+    text-transform: none;
+    letter-spacing: 0;
+  }
+
+  /* ---------- MOBILE FLOW ---------- */
+  .mobile-flow{
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    gap: 22px;
+    margin-top: 36px;
+    align-items: end;
+    justify-items: center;
+  }
+  .mobile-flow figure{
+    margin: 0;
+    display: flex; flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    width: 100%;
+  }
+  .mobile-flow img{
+    height: 320px;
+    width: auto;
+    border-radius: 26px;
+    border: 1px solid rgba(20,20,15,.10);
+    background: #fff;
+    box-shadow: 0 14px 40px -18px rgba(0,0,0,.22);
+  }
+  .phone-placeholder{
+    height: 320px;
+    width: 160px;
+    border-radius: 26px;
+    border: 1.5px dashed rgba(20,20,15,.22);
+    background: rgba(20,20,15,.025);
+    display: flex; flex-direction: column;
+    justify-content: center; align-items: center;
+    gap: 8px;
+    padding: 18px;
+    text-align: center;
+  }
+  .phone-placeholder .ph-label{
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--ink);
+    letter-spacing: -0.02em;
+  }
+  .phone-placeholder .ph-hint{
+    font-size: 11px;
+    color: var(--ink-mute);
+    line-height: 1.4;
+  }
+  .phone-placeholder code{
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    background: rgba(20,20,15,.06);
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 10px;
+    color: var(--ink-soft);
+  }
+  .mobile-flow figcaption{
+    font-size: 11px;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    text-align: center;
+    font-weight: 600;
+    display: flex; align-items: baseline; gap: 8px;
+  }
+  .mobile-flow figcaption .step-n{
+    font-family: "Instrument Serif", serif;
+    font-style: italic;
+    font-size: 18px;
+    color: var(--warm-2);
+    text-transform: none;
+    letter-spacing: 0;
+  }
+
+  /* ---------- ROADMAP DIAGRAM ---------- */
+  .road{
+    position: absolute;
+    left: var(--pad); right: var(--pad);
+    bottom: 130px;
+    top: 250px;
+    display: flex; flex-direction: column; justify-content: center;
+  }
+  .road-wrap{
+    position: relative;
+    padding: 60px 0 20px 0;
+  }
+  .road-line{
+    position: absolute;
+    left: 0; right: 0; top: 100px;
+    height: 2px;
+    background: repeating-linear-gradient(to right,
+      var(--ink) 0 4px, transparent 4px 10px);
+    opacity: .3;
+  }
+  .road-stops{
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    gap: 24px;
+    position: relative;
+    z-index: 1;
+  }
+  .road-stops.three-stops{
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 56px;
+  }
+  .road-stop{
+    display: flex; flex-direction: column; gap: 10px;
+    padding-top: 0;
+  }
+  .road-stop .marker{
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    background: var(--bg-cream);
+    border: 2px solid var(--ink);
+    margin-bottom: 24px;
+    margin-top: 91px;
+  }
+  .road-stop.now .marker{
+    background: var(--warm-2);
+    border-color: var(--warm-2);
+    box-shadow: 0 0 0 6px rgba(224,123,45,.18);
+  }
+  .road-stop .when{
+    font-size: 11px;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    font-weight: 700;
+  }
+  .road-stop.now .when{ color: var(--warm-2); }
+  .road-stop h4{
+    font-weight: 800;
+    font-size: 28px;
+    line-height: 1.05;
+    letter-spacing: -0.015em;
+    margin: 4px 0 6px 0;
+  }
+  .road-stop p{
+    font-size: 14px;
+    line-height: 1.45;
+    color: var(--ink-soft);
+    margin: 0;
+  }
+
+  /* ---------- THIS MONTH (two tracks) ---------- */
+  .tracks{
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 56px;
+    margin-top: 60px;
+  }
+  .tracks.tracks-three{
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 40px;
+    margin-top: 50px;
+  }
+  .obj-closer{
+    font-size: 18px;
+    line-height: 1.5;
+    color: var(--ink-soft);
+    margin: 48px 0 0 0;
+    max-width: 60ch;
+    border-left: 2px solid var(--warm-2);
+    padding-left: 16px;
+  }
+  .track{
+    border-top: 1.5px solid var(--ink);
+    padding-top: 22px;
+  }
+  .track .label{
+    font-size: 12px;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    font-weight: 700;
+    color: var(--warm-2);
+    margin-bottom: 10px;
+  }
+  .track h4{
+    font-weight: 800;
+    font-size: 44px;
+    line-height: 1;
+    letter-spacing: -0.025em;
+    margin: 0 0 14px 0;
+  }
+  .track .desc{
+    font-size: 17px;
+    color: var(--ink-soft);
+    margin: 0 0 22px 0;
+    line-height: 1.45;
+  }
+  .track ul{
+    list-style: none; padding: 0; margin: 0;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .track li{
+    display: flex; align-items: baseline; gap: 12px;
+    font-size: 17px;
+    line-height: 1.4;
+  }
+  .track li::before{
+    content: "→";
+    color: var(--warm-2);
+    font-family: "Instrument Serif", serif;
+    font-style: italic;
+    font-size: 20px;
+  }
+
+  /* ---------- OBJECTIVE ---------- */
+  .obj{
+    display: flex; flex-direction: column;
+    gap: 12px;
+    margin-top: 36px;
+    max-width: 1100px;
+  }
+  .obj .lede-big{
+    font-size: 22px;
+    line-height: 1.35;
+    color: var(--ink-soft);
+    margin: 0;
+    max-width: 640px;
+  }
+  .obj .triple{
+    display: flex; flex-direction: column; gap: 2px;
+    font-weight: 800;
+    font-size: 42px;
+    line-height: 1.1;
+    letter-spacing: -0.022em;
+    margin-top: 2px;
+  }
+  .obj .triple .row{ display: flex; align-items: baseline; gap: 12px; }
+  .obj .triple .key{
+    font-family: "Instrument Serif", serif;
+    font-style: italic;
+    font-weight: 400;
+    color: var(--warm-2);
+    font-size: 38px;
+    width: 1.2ch;
+    flex-shrink: 0;
+  }
+  .obj .closer{
+    font-family: "Instrument Serif", serif;
+    font-style: italic;
+    font-size: 20px;
+    line-height: 1.4;
+    color: var(--ink);
+    margin-top: 14px;
+    max-width: 56ch;
+    border-top: 1.5px solid var(--ink);
+    padding-top: 14px;
+  }
+
+  /* ---------- END ---------- */
+  .end-stack{
+    position: absolute;
+    inset: 0;
+    display: flex; flex-direction: column;
+    justify-content: center; align-items: center;
+    text-align: center;
+    color: #EDEAE0;
+  }
+  .end-stack .small{
+    font-size: 14px;
+    letter-spacing: .22em;
+    text-transform: uppercase;
+    color: #948C7A;
+    font-weight: 600;
+    margin-bottom: 16px;
+  }
+  .end-stack .big{
+    font-weight: 800;
+    font-size: 96px;
+    line-height: 1;
+    letter-spacing: -0.035em;
+    color: #EDEAE0;
+  }
+
+  /* ---------- CHROME (nav) ---------- */
+  .chrome{
+    position: fixed;
+    left: 50%; bottom: 22px;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 14px;
+    background: rgba(20,20,15,.55);
+    color: #EDEAE0;
+    border-radius: 999px;
+    font-size: 12px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    font-weight: 600;
+    backdrop-filter: blur(6px);
+    z-index: 100;
+    user-select: none;
+    opacity: 0;
+    transition: opacity .25s ease;
+  }
+  .chrome.show{ opacity: 1; }
+  .chrome button{
+    background: transparent;
+    border: none;
+    color: inherit;
+    font: inherit;
+    text-transform: inherit;
+    letter-spacing: inherit;
+    cursor: pointer;
+    padding: 2px 8px;
+    border-radius: 999px;
+  }
+  .chrome button:hover{ background: rgba(255,255,255,.12); }
+  .chrome .counter{ min-width: 5ch; text-align: center; }
+
+  .dots{
+    position: fixed;
+    left: 50%; top: 16px;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 6px;
+    z-index: 100;
+    opacity: 0;
+    transition: opacity .25s ease;
+  }
+  .dots.show{ opacity: .55; }
+  .dot{
+    width: 18px; height: 3px;
+    background: rgba(255,255,255,.35);
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all .25s ease;
+  }
+  .dot.active{ background: rgba(255,255,255,.95); width: 28px; }
+
+  /* hint on first load */
+  .hint{
+    position: fixed;
+    right: 22px; bottom: 22px;
+    color: rgba(255,255,255,.55);
+    font-size: 11px;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    z-index: 100;
+    pointer-events: none;
+    transition: opacity .4s ease;
+  }
+  .hint.fade{ opacity: 0; }
+
+  /* ---------- PRINT (export to PDF) ---------- */
+  @media print{
+    @page{ size: 13.33in 7.5in; margin: 0; }
+    html, body{ height: auto; overflow: visible; background: #fff; }
+    .stage{ position: static; display: block; }
+    .deck{ width: 13.33in; height: auto; transform: none; }
+    .slide{
+      position: relative; inset: auto;
+      width: 13.33in; height: 7.5in;
+      page-break-after: always;
+      opacity: 1 !important; visibility: visible !important;
+      break-inside: avoid;
+    }
+    .chrome, .dots, .hint{ display: none !important; }
+  }
 </style>
 </head>
 <body>
-<div id="root"></div>
 
-<script type="text/babel" data-presets="react">
-const { useState, useEffect, useRef, useMemo, useCallback } = React;
+<div class="stage">
+  <div class="deck" id="deck">
 
-/* ──────────────────────────────────────────────────────────────────
-   ICONS
-   Hand-drawn-feel line icons matching the screenshots (1.5–2 stroke).
-   ────────────────────────────────────────────────────────────────── */
-const Ic = {
-  today: (p) => (
-    <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3.5" y="3.5" width="17" height="17" rx="3" />
-      <path d="M9 15l6-6M9 9h6v6" />
-    </svg>
-  ),
-  jobs: (p) => (
-    <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z" />
-    </svg>
-  ),
-  invoices: (p) => (
-    <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M6 3h9l4 4v14a0 0 0 0 1 0 0H6a0 0 0 0 1 0 0V3z" />
-      <path d="M14 3v5h5M9 12h6M9 16h6" />
-    </svg>
-  ),
-  estimates: (p) => (
-    <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M6 3h9l4 4v14H6V3z" />
-      <path d="M14 3v5h5M9 13l2 2 4-4" />
-    </svg>
-  ),
-  clients: (p) => (
-    <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="9" cy="8" r="3.2" />
-      <path d="M3.5 19c.7-3 3-4.5 5.5-4.5S13.8 16 14.5 19" />
-      <circle cx="16.5" cy="9" r="2.6" />
-      <path d="M14.8 13.6c1-.4 2-.5 3-.3 1.6.2 2.7 1.2 3.2 2.7" />
-    </svg>
-  ),
-  priceBook: (p) => (
-    <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M4 4h6c1.5 0 2.5 1 2.5 2.5V20c0-1-1-1.8-2.5-1.8H4V4z" />
-      <path d="M20 4h-6c-1.5 0-2.5 1-2.5 2.5V20c0-1 1-1.8 2.5-1.8h6V4z" />
-    </svg>
-  ),
-  crew: (p) => (
-    <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="8.5" cy="8" r="3" />
-      <circle cx="16" cy="9" r="2.4" />
-      <path d="M3 19c.6-2.7 2.7-4.2 5.5-4.2S13.4 16.3 14 19" />
-      <path d="M14.6 13.6c.7-.4 1.5-.5 2.4-.4 2 .2 3.4 1.4 4 3.4" />
-    </svg>
-  ),
-  settings: (p) => (
-    <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="3" />
-      <path d="M19.4 12.9c.05-.3.1-.6.1-.9s-.05-.6-.1-.9l2-1.6-2-3.5-2.4 1c-.5-.4-1-.7-1.6-.9L15 3h-4l-.4 2.1c-.6.2-1.1.5-1.6.9l-2.4-1-2 3.5 2 1.6c-.05.3-.1.6-.1.9s.05.6.1.9l-2 1.6 2 3.5 2.4-1c.5.4 1 .7 1.6.9L11 21h4l.4-2.1c.6-.2 1.1-.5 1.6-.9l2.4 1 2-3.5-2-1.6z" />
-    </svg>
-  ),
-  support: (p) => (
-    <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M4 5h16v11H8l-4 4V5z" />
-    </svg>
-  ),
-  chevronDown: (p) => (
-    <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M6 9l6 6 6-6" />
-    </svg>
-  ),
-  chevronLeft: (p) => (
-    <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M15 6l-6 6 6 6" />
-    </svg>
-  ),
-  chevronRight: (p) => (
-    <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M9 6l6 6-6 6" />
-    </svg>
-  ),
-  arrowLeft: (p) => (
-    <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M19 12H5M12 5l-7 7 7 7" />
-    </svg>
-  ),
-  arrowRight: (p) => (
-    <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M5 12h14M12 5l7 7-7 7" />
-    </svg>
-  ),
-  search: (p) => (
-    <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="11" cy="11" r="6" />
-      <path d="M20 20l-4.4-4.4" />
-    </svg>
-  ),
-  close: (p) => (
-    <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M6 6l12 12M18 6L6 18" />
-    </svg>
-  ),
-  check: (p) => (
-    <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M5 12l5 5 9-10" />
-    </svg>
-  ),
-  plus: (p) => (
-    <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 5v14M5 12h14" />
-    </svg>
-  ),
-  user: (p) => (
-    <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="9" r="3.5" />
-      <circle cx="12" cy="12" r="9.2" />
-    </svg>
-  ),
-  userBadge: (p) => (
-    <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="9" r="3.2" />
-      <path d="M5.5 19c.7-3 3-4.5 6.5-4.5s5.8 1.5 6.5 4.5" />
-    </svg>
-  ),
-  link: (p) => (
-    <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1" />
-      <path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" />
-    </svg>
-  ),
-  reset: (p) => (
-    <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
-      <path d="M3 3v5h5" />
-    </svg>
-  ),
-};
+    <!-- ============ SLIDE 1: COVER ============ -->
+    <section class="slide dark" data-name="cover">
+      <div class="cover-stack">
+        <div class="small">Field Service</div>
+        <div class="big">Product</div>
+      </div>
+      <div class="cover-meta">Monthly Review · April 2026</div>
+    </section>
 
-/* ──────────────────────────────────────────────────────────────────
-   CONSTANTS
-   ────────────────────────────────────────────────────────────────── */
-const NAV_ITEMS = [
-  { id: 'today', label: 'Today', icon: 'today' },
-  { id: 'jobs', label: 'Jobs', icon: 'jobs' },
-  { id: 'invoices', label: 'Invoices', icon: 'invoices' },
-  { id: 'estimates', label: 'Estimates', icon: 'estimates' },
-  { id: 'clients', label: 'Clients', icon: 'clients' },
-  { id: 'priceBook', label: 'Price book', icon: 'priceBook' },
-  { id: 'crew', label: 'Crew', icon: 'crew' },
-];
+    <!-- ============ SLIDE 2: 01 WHAT SHIPPED ============ -->
+    <section class="slide" data-name="shipped">
+      <header class="frame-head">
+        <div class="eyebrow">01 · What shipped</div>
+        <div class="brand"></div>
+      </header>
 
-const QUICK_PICKS = [
-  'AC tune-up',
-  'Heating repair',
-  'Filter replacement',
-  'Annual inspection',
-  'Duct cleaning',
-  'New installation',
-];
-
-const TIME_SLOTS = [
-  '8:00 AM','9:00 AM','10:00 AM','11:00 AM',
-  '12:00 PM','1:00 PM','2:00 PM','3:00 PM',
-  '4:00 PM','5:00 PM','6:00 PM','7:00 PM',
-  '8:00 PM',
-];
-
-const DEMO_CLIENTS = [
-  { id:'c1', name:'Alice Johnson', address:'422 Maple Ave', email:'alice@example.com', phone:'(415) 555-0182' },
-  { id:'c2', name:'Ben Thompson', address:'115 Oak Dr', jobs:2 },
-  { id:'c3', name:'Catherine Lee', address:'578 Pine Blvd', jobs:3 },
-  { id:'c4', name:'Daniel Smith', address:'789 Elm St' },
-  { id:'c5', name:'Emily Davis', address:'90 Cedar Way' },
-  { id:'c6', name:'Frank Wilson', address:'456 Birch Ct', jobs:2 },
-  { id:'c7', name:'Grace Martinez', address:'234 Willow Ln' },
-  { id:'c8', name:'Henry Brown', address:'111 Cherry Pl' },
-  { id:'c9', name:'Isabella Taylor', address:'876 Ash Rd' },
-  { id:'c10', name:'Jack White', address:'345 Beech Ter', jobs:1 },
-  { id:'c11', name:'Liam Harris', address:'667 Fir Ave' },
-];
-
-const DEMO_WORKERS = [
-  { id:'w1', name:'James Albright' },
-  { id:'w2', name:'Marcus Lee' },
-  { id:'w3', name:'Pamela Haight' },
-  { id:'w4', name:'Rachel Sinclair' },
-];
-
-const DEMO_JOBS = [
-  { id:'j1', time:'7:30 AM', title:'AC tune-up',           client:'Michael Johnson',  status:'scheduled',   assigneeId:'w-self', assigneeName:'Alex' },
-  { id:'j2', time:'8:00 AM', title:'Plumbing repair',       client:'Sarah Brown',      status:'in_progress', assigneeId:'w-sophie', assigneeName:'Sophie' },
-  { id:'j3', time:'8:30 AM', title:'Landscaping maintenance', client:'Kevin Smith',    status:'in_progress', assigneeId:'w-self', assigneeName:'Alex' },
-  { id:'j4', time:'9:00 AM', title:'Electrical inspection', client:'Laura Wilson',     status:'scheduled',   assigneeId:'w-mike', assigneeName:'Michael' },
-  { id:'j5', time:'9:25 AM', title:'Carpet cleaning',       client:'Brian Davis',      status:'scheduled',   assigneeId:'w-sophie', assigneeName:'Sophie' },
-  { id:'j6', time:'10:30 AM', title:'Pressure washing',     client:'Amanda Clark',     status:'scheduled',   assigneeId:null },
-  { id:'j7', time:'12:15 PM', title:'Pest control',         client:'Stephen Lewis',    status:'scheduled',   assigneeId:'w-self', assigneeName:'Alex' },
-  { id:'j8', time:'2:40 PM',  title:'Window cleaning',      client:'Karen Hall',       status:'scheduled',   assigneeId:'w-mike', assigneeName:'Michael' },
-  { id:'j9', time:'3:00 PM',  title:'Roof inspection',      client:'Daniel Young',     status:'scheduled',   assigneeId:'w-sophie', assigneeName:'Sophie' },
-  { id:'j10', time:'4:00 PM', title:'HVAC servicing',       client:'Michelle Allen',   status:'scheduled',   assigneeId:'w-self', assigneeName:'Alex' },
-  { id:'j11', time:'6:30 PM', title:'Siding repair',        client:'Paul Carter',      status:'scheduled',   assigneeId:null },
-];
-
-/* A compact preset that hits every status the system can show:
-   overdue (auto-derived), in_progress, done, scheduled+assigned, scheduled
-   unassigned, future-day, and unscheduled. */
-const DEMO_STATUS_JOBS = [
-  { time:'7:00 AM',  title:'AC tune-up',         client:'Anna Cole',      status:'scheduled',   assigneeId:'w-james',  assigneeName:'James Albright', _today:true },
-  { time:'8:00 AM',  title:'Pipe leak fix',      client:'Henry Park',     status:'in_progress', assigneeId:'w-marcus', assigneeName:'Marcus Lee',     _today:true },
-  { time:'8:30 AM',  title:'Filter swap',        client:'Iris Chen',      status:'done',        assigneeId:'w-pam',    assigneeName:'Pamela Haight',  _today:true },
-  { time:'10:00 AM', title:'Window cleaning',    client:'Owen Brooks',    status:'scheduled',   assigneeId:'w-rachel', assigneeName:'Rachel Sinclair',_today:true },
-  { time:'2:00 PM',  title:'Roof inspection',    client:'Mira Ortiz',     status:'scheduled',   assigneeId:null,                                       _today:true },
-  { time:'9:00 AM',  title:'Drywall patch',      client:'Lucas Brennan',  status:'scheduled',   assigneeId:'w-marcus', assigneeName:'Marcus Lee',     _tomorrow:true },
-  { time:'Unscheduled', title:'Estimate visit',  client:'Diego Reyes',    status:'scheduled',   assigneeId:null },
-];
-
-const DEMO_WORKERS_FULL = [
-  { id:'w-self', name:'Me' },
-  { id:'w-james', name:'James Albright' },
-  { id:'w-marcus', name:'Marcus Lee' },
-  { id:'w-pam',   name:'Pamela Haight' },
-  { id:'w-rachel',name:'Rachel Sinclair' },
-];
-
-/* Sort jobs by their time string */
-function timeKey(t) {
-  const m = t.match(/(\d+):(\d+)\s*(AM|PM)/i);
-  if (!m) return 0;
-  let h = parseInt(m[1], 10);
-  const mm = parseInt(m[2], 10);
-  const ap = m[3].toUpperCase();
-  if (ap === 'PM' && h !== 12) h += 12;
-  if (ap === 'AM' && h === 12) h = 0;
-  return h * 60 + mm;
-}
-
-/* Date helpers */
-function dateToISO(d) {
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-}
-function todayISO() { return dateToISO(new Date()); }
-function tomorrowISO() {
-  const d = new Date(); d.setDate(d.getDate()+1); return dateToISO(d);
-}
-function friendlyDate(iso) {
-  if (!iso) return 'Unscheduled';
-  if (iso === todayISO()) return 'Today';
-  if (iso === tomorrowISO()) return 'Tomorrow';
-  const [y,m,day] = iso.split('-').map(Number);
-  const d = new Date(y, m-1, day);
-  const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-  return `${dayNames[d.getDay()]}, ${monthNames[d.getMonth()]} ${day}`;
-}
-function compareJobs(a, b) {
-  const ad = a.dateISO || '\uffff'; // unscheduled go last
-  const bd = b.dateISO || '\uffff';
-  if (ad !== bd) return ad < bd ? -1 : 1;
-  return timeKey(a.time) - timeKey(b.time);
-}
-
-/* The "now" indicator on the timeline is fixed in this prototype so that the
-   demo state stays predictable. Auto-overdue derives from the same value. */
-const NOW_LABEL = '8:45 AM';
-const NOW_KEY = timeKey(NOW_LABEL);
-
-function parseLocalISO(iso) {
-  const [y, m, d] = iso.split('-').map(Number);
-  return new Date(y, m - 1, d);
-}
-
-function effectiveStatus(job) {
-  if (job.status === 'done' || job.status === 'in_progress') return job.status;
-  if (job.status === 'overdue') return 'overdue';
-  if (!job.dateISO) return job.status; // unscheduled stays as-is
-  const t = todayISO();
-  if (job.dateISO < t) return 'overdue';
-  if (job.dateISO === t && timeKey(job.time) < NOW_KEY) return 'overdue';
-  return job.status;
-}
-
-/* ──────────────────────────────────────────────────────────────────
-   APP ROOT
-   ────────────────────────────────────────────────────────────────── */
-function App() {
-  // Data
-  const [clients, setClients]   = useState([]);
-  const [workers, setWorkers]   = useState([]); // user's crew
-  const [jobs, setJobs]         = useState([]);
-
-  // UI
-  const [view, setView]         = useState('today');
-  const [modal, setModal]       = useState(null);  // see types below
-  const [toast, setToast]       = useState(null);
-  const [highlightJob, setHighlightJob] = useState(null);
-  const [emptyVariant, setEmptyVariant] = useState('original');
-  const [selectedJobId, setSelectedJobId] = useState(null);
-  const [returnView, setReturnView]       = useState('today');
-
-  /* ── Schedule job flow ── */
-  const startScheduleJob = useCallback(() => {
-    if (clients.length === 0) {
-      setModal({ kind:'newClient', returnTo:'jobTitle' });
-    } else {
-      setModal({ kind:'pickClient' });
-    }
-  }, [clients.length]);
-
-  const handleClientCreated = (client) => {
-    setClients(prev => [...prev, client]);
-    if (modal?.returnTo === 'jobTitle') {
-      setModal({ kind:'jobTitle', client });
-    } else {
-      setModal(null);
-      pushToast('Client added');
-    }
-  };
-
-  const handleClientPicked = (client) => {
-    setModal({ kind:'jobTitle', client });
-  };
-
-  const handleJobTitleContinue = (title) => {
-    setModal({ kind:'when', client: modal.client, title });
-  };
-
-  const handleCreateJob = ({ time, dateISO, dateLabel }) => {
-    const newJob = {
-      id: `j_${Date.now()}`,
-      time,
-      dateISO,
-      dateLabel,
-      title: modal.title,
-      client: modal.client.name,
-      status: 'scheduled',
-      assigneeId: null,
-    };
-    setJobs(prev => [...prev, newJob].sort(compareJobs));
-    setModal(null);
-
-    const isToday = dateISO === todayISO();
-    const isUnscheduled = !dateISO;
-    let message;
-    let viewTarget;
-    if (isUnscheduled) {
-      message = 'Saved as unscheduled';
-      viewTarget = 'jobs';
-    } else if (isToday) {
-      message = 'Job created';
-      viewTarget = 'today';
-    } else {
-      message = `Scheduled for ${friendlyDate(dateISO)}`;
-      viewTarget = 'jobs';
-    }
-    pushToast(message, newJob.id, viewTarget);
-  };
-
-  /* ── Job mutation helpers ── */
-  const updateJob = (jobId, patch) => {
-    setJobs(prev => prev.map(j => j.id === jobId ? { ...j, ...patch } : j).sort(compareJobs));
-  };
-  const deleteJob = (jobId) => {
-    setJobs(prev => prev.filter(j => j.id !== jobId));
-  };
-  const handleReschedule = (jobId, { time, dateISO }) => {
-    updateJob(jobId, { time, dateISO });
-    setModal(null);
-    const message = !dateISO
-      ? 'Marked as unscheduled'
-      : dateISO === todayISO() ? 'Rescheduled to today' : `Rescheduled to ${friendlyDate(dateISO)}`;
-    const target = !dateISO ? 'jobs' : (dateISO === todayISO() ? 'today' : 'jobs');
-    pushToast(message, jobId, target);
-  };
-  const handleStatusChange = (jobId, status) => {
-    updateJob(jobId, { status });
-    setModal(null);
-    const labels = { done:'Marked as done', in_progress:'Marked in progress', scheduled:'Reopened' };
-    pushToast(labels[status] || 'Status updated');
-  };
-  const handleDeleteJob = (jobId) => {
-    deleteJob(jobId);
-    setModal(null);
-    pushToast('Job deleted');
-  };
-  const openJobDetail = (job) => {
-    setReturnView(view);
-    setSelectedJobId(job.id);
-  };
-  const closeJobDetail = () => setSelectedJobId(null);
-
-  /* ── Toast ── */
-  const pushToast = (message, jobId=null, viewTarget=null) => {
-    setToast({ message, jobId, viewTarget, key: Date.now() });
-  };
-  // Auto-dismiss the latest toast
-  useEffect(() => {
-    if (!toast) return;
-    const id = setTimeout(() => setToast(null), 4200);
-    return () => clearTimeout(id);
-  }, [toast?.key]);
-
-  /* ── Demo controls ── */
-  const loadDemoData = () => {
-    const t = todayISO();
-    setClients(DEMO_CLIENTS);
-    setWorkers(DEMO_WORKERS_FULL);
-    setJobs(DEMO_JOBS.map(j => ({...j, dateISO: t})).sort(compareJobs));
-    setView('today');
-    setModal(null);
-    pushToast('Demo data loaded');
-  };
-  const loadStatusShowcase = () => {
-    const t = todayISO();
-    const tm = tomorrowISO();
-    const built = DEMO_STATUS_JOBS.map((j, i) => {
-      const dateISO = j._today ? t : (j._tomorrow ? tm : null);
-      const { _today, _tomorrow, ...rest } = j;
-      return { id: `s_${Date.now()}_${i}`, dateISO, ...rest };
-    });
-    setClients([]);
-    setWorkers(DEMO_WORKERS_FULL);
-    setJobs(built.sort(compareJobs));
-    setView('today');
-    setModal(null);
-    pushToast('Statuses showcase loaded');
-  };
-  const resetAll = () => {
-    setClients([]);
-    setWorkers([]);
-    setJobs([]);
-    setView('today');
-    setModal(null);
-    pushToast('Workspace reset');
-  };
-  const seedClients = () => {
-    setClients(DEMO_CLIENTS);
-    pushToast('Sample clients added');
-  };
-
-  /* ── Render ── */
-  return (
-    <div className="h-full w-full p-4 md:p-6 flex items-stretch justify-center" style={{background:'var(--bg-page)'}}>
-      <div className="w-full max-w-[1180px] h-full flex bg-white rounded-[14px] overflow-hidden" style={{boxShadow:'0 1px 0 rgba(0,0,0,0.04), 0 0 0 1px rgba(0,0,0,0.06)'}}>
-        <Sidebar view={view} setView={(v) => { setView(v); setSelectedJobId(null); }} hasJobs={jobs.length>0} />
-        <main className="flex-1 relative overflow-hidden">
-          {selectedJobId ? (
-            (() => {
-              const job = jobs.find(j => j.id === selectedJobId);
-              if (!job) { setSelectedJobId(null); return null; }
-              return (
-                <JobScreen
-                  job={job}
-                  workers={workers}
-                  allJobs={jobs}
-                  returnView={returnView}
-                  onBack={closeJobDetail}
-                  onChangeStatus={(status) => handleStatusChange(job.id, status)}
-                  onReschedule={() => setModal({
-                    kind:'when',
-                    editJobId: job.id,
-                    client: { name: job.client },
-                    title: job.title,
-                    initialDateISO: job.dateISO,
-                    initialTime: job.time === 'Unscheduled' ? null : job.time,
-                  })}
-                  onAssign={(workerId, workerName) => updateJob(job.id, { assigneeId: workerId, assigneeName: workerName })}
-                  onUnassign={() => updateJob(job.id, { assigneeId: null, assigneeName: undefined })}
-                  setView={(v) => { setView(v); setSelectedJobId(null); }}
-                />
-              );
-            })()
-          ) : (
-            <>
-              {view === 'today' && (
-                <TodayView
-                  jobs={jobs.filter(j => j.dateISO === todayISO())}
-                  workers={workers}
-                  setJobs={setJobs}
-                  onSchedule={startScheduleJob}
-                  onAddEstimate={() => pushToast('Estimates — coming soon')}
-                  onOpenJob={openJobDetail}
-                  highlightJob={highlightJob}
-                  setHighlightJob={setHighlightJob}
-                  setView={setView}
-                  emptyVariant={emptyVariant}
-                />
-              )}
-              {view === 'jobs' && (
-                <JobsView
-                  jobs={jobs}
-                  workers={workers}
-                  setJobs={setJobs}
-                  onSchedule={startScheduleJob}
-                  onOpenJob={openJobDetail}
-                  highlightJob={highlightJob}
-                  setView={setView}
-                />
-              )}
-              {view === 'crew' && (
-                <CrewView
-                  workers={workers}
-                  setWorkers={setWorkers}
-                  setModal={setModal}
-                  pushToast={pushToast}
-                />
-              )}
-              {view === 'clients' && (
-                <ClientsView clients={clients} onAdd={() => setModal({ kind:'newClient' })} />
-              )}
-              {(view === 'invoices' || view === 'estimates' || view === 'priceBook') && (
-                <PlaceholderView label={NAV_ITEMS.find(i=>i.id===view)?.label || ''} />
-              )}
-            </>
-          )}
-        </main>
+      <div style="position:absolute; left:var(--pad); top:170px; right:var(--pad);">
+        <h1 class="display" style="font-size:84px; max-width:18ch;">The build kept moving</h1>
       </div>
 
-      {/* Modals */}
-      {modal?.kind === 'pickClient' && (
-        <PickClientModal
-          clients={clients}
-          onClose={() => setModal(null)}
-          onPick={handleClientPicked}
-          onNew={() => setModal({ kind:'newClient', returnTo:'jobTitle' })}
-        />
-      )}
-      {modal?.kind === 'newClient' && (
-        <NewClientModal
-          onClose={() => setModal(modal.returnTo === 'jobTitle' && clients.length>0 ? { kind:'pickClient' } : null)}
-          onSave={handleClientCreated}
-        />
-      )}
-      {modal?.kind === 'jobTitle' && (
-        <JobTitleModal
-          client={modal.client}
-          onClose={() => setModal(null)}
-          onBackToClient={() => setModal(clients.length>1 ? { kind:'pickClient' } : null)}
-          onContinue={handleJobTitleContinue}
-        />
-      )}
-      {modal?.kind === 'when' && (
-        <WhenModal
-          client={modal.client}
-          title={modal.title}
-          mode={modal.editJobId ? 'edit' : 'create'}
-          initialDateISO={modal.initialDateISO}
-          initialTime={modal.initialTime}
-          onClose={() => setModal(null)}
-          onBackToTitle={modal.editJobId ? null : () => setModal({ kind:'jobTitle', client: modal.client })}
-          onCreate={(payload) => {
-            if (modal.editJobId) {
-              handleReschedule(modal.editJobId, payload);
-            } else {
-              handleCreateJob(payload);
-            }
-          }}
-          onScheduleLater={() => {
-            if (modal.editJobId) {
-              handleReschedule(modal.editJobId, { time:'Unscheduled', dateISO: null });
-            } else {
-              handleCreateJob({ time:'Unscheduled', dateLabel:'Later', dateISO: null });
-            }
-          }}
-        />
-      )}
-      {modal?.kind === 'inviteCrew' && (
-        <InviteCrewModal
-          onClose={() => setModal(null)}
-          onSave={(names) => {
-            const fresh = names.map((n, i) => ({ id:`w_${Date.now()}_${i}`, name:n }));
-            setWorkers(prev => [...prev, ...fresh]);
-            setModal(null);
-            pushToast(`${fresh.length} ${fresh.length===1?'worker':'workers'} added`);
-          }}
-        />
-      )}
-
-      {/* Toast */}
-      {toast && (
-        <Toast toast={toast} onDismiss={() => setToast(null)} onView={() => {
-          if (toast.viewTarget && toast.viewTarget !== view) {
-            setView(toast.viewTarget);
-          }
-          if (toast.jobId) {
-            setHighlightJob(toast.jobId);
-            setTimeout(() => setHighlightJob(null), 1800);
-          }
-          setToast(null);
-        }} />
-      )}
-
-      {/* Demo controls (small floating panel) */}
-      <DemoPanel
-        onLoad={loadDemoData}
-        onLoadStatuses={loadStatusShowcase}
-        onReset={resetAll}
-        onSeedClients={seedClients}
-        emptyVariant={emptyVariant}
-        setEmptyVariant={setEmptyVariant}
-      />
-    </div>
-  );
-}
-
-/* ──────────────────────────────────────────────────────────────────
-   SIDEBAR
-   ────────────────────────────────────────────────────────────────── */
-function Sidebar({ view, setView }) {
-  return (
-    <aside className="w-[230px] shrink-0 flex flex-col py-5 px-4 border-r border-line">
-      <div className="flex flex-col gap-3 px-1 pb-5">
-        <button className="flex items-center gap-2 group">
-          <div className="w-8 h-8 rounded-[7px] bg-black flex items-center justify-center text-white font-semibold text-sm">B</div>
-        </button>
-        <button className="flex items-center justify-between text-[14px] font-medium text-ink rounded-md hover:bg-cream-soft px-1 py-1 -mx-1 transition">
-          <span>Brick Builder</span>
-          <Ic.chevronDown width="14" height="14" className="text-muted" />
-        </button>
+      <div class="ship-grid">
+        <article class="ship-card">
+          <span class="pill live">Live · web · iOS rolling out</span>
+          <h4>Photos on Jobs</h4>
+          <p>Proof of work, before/after, evidence of what actually got done.</p>
+        </article>
+        <article class="ship-card">
+          <span class="pill warm">In progress · lands this month</span>
+          <h4>Notes on Jobs</h4>
+          <p>Where job context lives. The layer that breaks the moment a new tech shows up.</p>
+        </article>
+        <article class="ship-card">
+          <span class="pill">Deliberately paused</span>
+          <h4>Jobs flow changes</h4>
+          <p>Held off until the research tells us where to invest.</p>
+        </article>
       </div>
-      <nav className="flex flex-col gap-0.5">
-        {NAV_ITEMS.map(item => {
-          const active = view === item.id;
-          const I = Ic[item.icon];
-          return (
-            <button
-              key={item.id}
-              onClick={() => setView(item.id)}
-              className={`flex items-center gap-2.5 px-3 py-2 rounded-[8px] text-[13.5px] font-medium transition-colors ${
-                active ? 'bg-cream text-ink' : 'text-ink hover:bg-cream-soft'
-              }`}
-            >
-              <I width="17" height="17" className="shrink-0" />
-              <span>{item.label}</span>
-            </button>
-          );
-        })}
-      </nav>
-      <div className="mt-auto flex flex-col gap-0.5">
-        <button className="flex items-center gap-2.5 px-3 py-2 rounded-[8px] text-[13.5px] font-medium text-ink hover:bg-cream-soft transition-colors">
-          <Ic.settings width="17" height="17" className="shrink-0" />
-          <span>Settings</span>
-        </button>
-        <button className="flex items-center gap-2.5 px-3 py-2 rounded-[8px] text-[13.5px] font-medium text-ink hover:bg-cream-soft transition-colors">
-          <Ic.support width="17" height="17" className="shrink-0" />
-          <span>Support</span>
-        </button>
-      </div>
-    </aside>
-  );
-}
 
-/* ──────────────────────────────────────────────────────────────────
-   TODAY VIEW
-   ────────────────────────────────────────────────────────────────── */
-function TodayView({ jobs, workers, setJobs, onSchedule, onAddEstimate, onOpenJob, highlightJob, setHighlightJob, setView, emptyVariant }) {
-  const total = jobs.length;
-  const done = jobs.filter(j => j.status === 'done').length;
-  const remaining = total - done;
-  const subtitle = total === 0 ? "You're all caught up" : `${done} of ${total} ${total===1?'visit':'visits'} done`;
-  const allDone = total > 0 && remaining === 0;
+      <footer class="frame-foot"><span></span><span>01 / 13</span></footer>
+    </section>
 
-  return (
-    <div className="h-full overflow-auto">
-      <div className="px-10 pt-10 pb-2 flex items-start justify-between gap-6">
-        <div>
-          <h1 className="text-[28px] font-semibold tracking-[-0.02em] leading-tight">Today</h1>
-          <p className="mt-1 text-[13.5px] text-muted">{subtitle}</p>
+    <!-- ============ SLIDE 3: 02 WHAT WE LEARNED ============ -->
+    <section class="slide" data-name="learned">
+      <header class="frame-head">
+        <div class="eyebrow">02 · What we learned</div>
+        <div class="brand"></div>
+      </header>
+
+      <div class="learned">
+        <div class="stmt">
+          Engagement with our core surfaces<br>
+          <span class="muted">is low</span>
         </div>
-        <div className="flex items-center gap-2.5">
-          <button
-            onClick={onSchedule}
-            className="px-4 h-9 rounded-[8px] bg-black text-white text-[13.5px] font-medium hover:bg-ink-soft transition"
-            style={{background:'var(--ink)'}}
-          >
-            Schedule job
-          </button>
-          <button
-            onClick={onAddEstimate}
-            className="px-4 h-9 rounded-[8px] bg-white text-ink text-[13.5px] font-medium border border-line-strong hover:bg-cream-soft transition"
-          >
-            Add estimate
-          </button>
-        </div>
-      </div>
-
-      <div className="px-10 mt-6 pb-10">
-        {total === 0 ? (
-          <EmptyToday variant={emptyVariant} />
-        ) : allDone ? (
-          <AllDoneToday count={done} />
-        ) : (
-          <JobList
-            jobs={jobs}
-            workers={workers}
-            setJobs={setJobs}
-            onOpenJob={onOpenJob}
-            highlightJob={highlightJob}
-            setView={setView}
-          />
-        )}
-      </div>
-    </div>
-  );
-}
-
-function AllDoneToday({ count }) {
-  return (
-    <div
-      className="rounded-[12px] flex flex-col items-center justify-center text-center px-6 leading-relaxed gap-2"
-      style={{height:'min(60vh, 480px)', border:'1.5px dashed var(--line-strong)'}}
-    >
-      <Ic.check width="22" height="22" className="text-muted" />
-      <div className="text-[14px] text-ink font-medium">All visits done for today</div>
-      <div className="text-[13px] text-muted-soft">
-        {count} {count === 1 ? 'visit' : 'visits'} completed
-      </div>
-    </div>
-  );
-}
-
-function EmptyToday({ variant = 'original' }) {
-  const text = variant === 'alternative'
-    ? 'As you schedule visits, they line up here from morning to evening. Your whole day in one place'
-    : 'Quiet day, no more jobs today';
-  return (
-    <div
-      className="rounded-[12px] flex items-center justify-center text-muted-soft text-[14px] text-center px-6 leading-relaxed"
-      style={{
-        height:'min(60vh, 480px)',
-        border:'1.5px dashed var(--line-strong)'
-      }}
-    >
-      <span className="max-w-[420px]">{text}</span>
-    </div>
-  );
-}
-
-/* ──────────────────────────────────────────────────────────────────
-   JOBS VIEW — all scheduled jobs grouped by date
-   ────────────────────────────────────────────────────────────────── */
-function JobsView({ jobs, workers, setJobs, onSchedule, onOpenJob, highlightJob, setView }) {
-  const groups = useMemo(() => {
-    const map = new Map();
-    for (const j of jobs) {
-      const key = j.dateISO || '__unscheduled__';
-      if (!map.has(key)) map.set(key, []);
-      map.get(key).push(j);
-    }
-    for (const arr of map.values()) {
-      arr.sort((a, b) => timeKey(a.time) - timeKey(b.time));
-    }
-    const entries = Array.from(map.entries()).sort(([a], [b]) => {
-      if (a === '__unscheduled__') return 1;
-      if (b === '__unscheduled__') return -1;
-      return a < b ? -1 : 1;
-    });
-    return entries;
-  }, [jobs]);
-
-  return (
-    <div className="h-full overflow-auto">
-      <div className="px-10 pt-10 pb-2 flex items-start justify-between gap-6">
-        <div>
-          <h1 className="text-[28px] font-semibold tracking-[-0.02em] leading-tight">Jobs</h1>
-          <p className="mt-1 text-[13.5px] text-muted">
-            {jobs.length === 0
-              ? 'No jobs scheduled yet'
-              : `${jobs.length} ${jobs.length === 1 ? 'job' : 'jobs'} scheduled`}
-          </p>
-        </div>
-        <div className="flex items-center gap-2.5">
-          <button
-            onClick={onSchedule}
-            className="px-4 h-9 rounded-[8px] text-white text-[13.5px] font-medium hover:bg-ink-soft transition"
-            style={{background:'var(--ink)'}}
-          >
-            Schedule job
-          </button>
-        </div>
-      </div>
-
-      <div className="px-10 mt-6 pb-10">
-        {jobs.length === 0 ? (
-          <div
-            className="rounded-[12px] flex items-center justify-center text-muted-soft text-[14px]"
-            style={{height:'320px', border:'1.5px dashed var(--line-strong)'}}
-          >
-            Schedule a job and it'll show up here
-          </div>
-        ) : (
-          <div className="flex flex-col gap-7">
-            {groups.map(([key, items]) => (
-              <section key={key}>
-                <div className="flex items-baseline gap-3 mb-1.5">
-                  <h2 className="text-[14px] font-semibold text-ink tracking-[-0.005em]">
-                    {key === '__unscheduled__' ? 'Unscheduled' : friendlyDate(key)}
-                  </h2>
-                  <span className="text-[12px] text-muted-soft tabular-nums">
-                    {items.length} {items.length === 1 ? 'visit' : 'visits'}
-                  </span>
-                </div>
-                <div>
-                  {items.map(job => (
-                    <JobRow
-                      key={job.id}
-                      job={job}
-                      workers={workers}
-                      allJobs={items}
-                      setJobs={setJobs}
-                      onOpen={onOpenJob}
-                      highlight={highlightJob === job.id}
-                      setView={setView}
-                    />
-                  ))}
-                </div>
-              </section>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-/* ──────────────────────────────────────────────────────────────────
-   JOB LIST + ROW
-   ────────────────────────────────────────────────────────────────── */
-function JobList({ jobs, workers, setJobs, onOpenJob, highlightJob, setView }) {
-  const items = useMemo(() => {
-    return [...jobs]
-      .filter(j => j.status !== 'done')
-      .sort((a,b)=>timeKey(a.time)-timeKey(b.time));
-  }, [jobs]);
-
-  const nowIndex = items.findIndex(j => timeKey(j.time) > NOW_KEY);
-
-  return (
-    <div>
-      {items.map((job, i) => (
-        <React.Fragment key={job.id}>
-          {i === nowIndex && <NowMarker label={NOW_LABEL} />}
-          <JobRow
-            job={job}
-            workers={workers}
-            allJobs={items}
-            setJobs={setJobs}
-            onOpen={onOpenJob}
-            highlight={highlightJob === job.id}
-            setView={setView}
-          />
-        </React.Fragment>
-      ))}
-      {nowIndex === -1 && items.length > 0 && <NowMarker label={NOW_LABEL} atEnd />}
-    </div>
-  );
-}
-
-function NowMarker({ label, atEnd }) {
-  return (
-    <div className="relative h-0 z-10" aria-hidden="false">
-      <div
-        className="absolute left-[14px] -translate-y-1/2 inline-flex items-center text-[11.5px] font-medium text-white px-2 py-1 rounded-full select-none"
-        style={{ background:'#2A3F5F', top: atEnd ? 'auto' : 0, bottom: atEnd ? 0 : 'auto', boxShadow:'0 1px 2px rgba(0,0,0,0.10)' }}
-      >
-        {label}
-      </div>
-    </div>
-  );
-}
-
-function JobRow({ job, workers, allJobs, setJobs, onOpen, highlight, setView }) {
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [emptyHintOpen, setEmptyHintOpen] = useState(false);
-  const wrapRef = useRef(null);
-
-  // Close menus on outside click
-  useEffect(() => {
-    const onClick = (e) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target)) {
-        setMenuOpen(false); setEmptyHintOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', onClick);
-    return () => document.removeEventListener('mousedown', onClick);
-  }, []);
-
-  const onAssignClick = (e) => {
-    e.stopPropagation();
-    if (workers.length === 0) {
-      setEmptyHintOpen(v => !v);
-      setMenuOpen(false);
-    } else {
-      setMenuOpen(v => !v);
-      setEmptyHintOpen(false);
-    }
-  };
-
-  const setAssignee = (workerId, workerName) => {
-    setJobs(prev => prev.map(j => j.id === job.id ? { ...j, assigneeId: workerId, assigneeName: workerName } : j));
-    setMenuOpen(false);
-  };
-  const unassign = () => {
-    setJobs(prev => prev.map(j => j.id === job.id ? { ...j, assigneeId:null, assigneeName:undefined } : j));
-    setMenuOpen(false);
-  };
-
-  const status = effectiveStatus(job);
-  const isDone = status === 'done';
-
-  return (
-    <div
-      onClick={() => onOpen && onOpen(job)}
-      className={`relative flex items-center gap-6 py-4 transition-colors cursor-pointer ${highlight ? 'bg-cream-soft' : 'hover:bg-cream-soft/60'} ${isDone ? 'opacity-60' : ''}`}
-      style={{borderTop:'1px solid var(--line)'}}
-    >
-      <div className="w-[78px] shrink-0 text-[13.5px] text-muted tabular-nums">{job.time}</div>
-      <div className="flex-1 min-w-0">
-        <div className={`text-[14.5px] text-ink font-medium leading-tight ${isDone ? 'line-through decoration-1 decoration-[var(--muted-soft)]' : ''}`}>{job.title}</div>
-        <div className="text-[13px] text-muted mt-0.5">{job.client}</div>
-      </div>
-
-      <div
-        className="flex items-center gap-2 shrink-0"
-        ref={wrapRef}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <StatusPill status={status} />
-
-        {job.assigneeId
-          ? (
-            <button
-              onClick={onAssignClick}
-              className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full text-[12.5px] text-ink bg-white border border-line-strong hover:bg-cream-soft transition relative"
-            >
-              <Ic.userBadge width="13" height="13" />
-              <span>{job.assigneeName}</span>
-            </button>
-          )
-          : (
-            <button
-              onClick={onAssignClick}
-              className="inline-flex items-center gap-1 h-7 px-2.5 rounded-full text-[12.5px] text-muted bg-white border border-dashed border-line-strong hover:bg-cream-soft hover:text-ink transition"
-            >
-              <Ic.plus width="12" height="12" />
-              <span>Assign</span>
-            </button>
-          )
-        }
-
-        {menuOpen && workers.length > 0 && (
-          <AssigneeMenu
-            allJobs={allJobs}
-            currentJob={job}
-            workers={workers}
-            onPick={setAssignee}
-            onUnassign={unassign}
-          />
-        )}
-        {emptyHintOpen && workers.length === 0 && (
-          <EmptyCrewHint
-            onClose={() => setEmptyHintOpen(false)}
-            onInvite={() => { setEmptyHintOpen(false); setView('crew'); }}
-          />
-        )}
-      </div>
-    </div>
-  );
-}
-
-function StatusPill({ status }) {
-  if (status === 'overdue')
-    return <span className="text-[11.5px] font-medium px-2 py-0.5 rounded-full" style={{background:'var(--red-soft)', color:'var(--red-text)'}}>Overdue</span>;
-  if (status === 'in_progress')
-    return <span className="text-[11.5px] font-medium px-2 py-0.5 rounded-full" style={{background:'var(--blue-soft)', color:'var(--blue-text)'}}>In progress</span>;
-  if (status === 'done')
-    return <span className="text-[11.5px] font-medium px-2 py-0.5 rounded-full" style={{background:'var(--green-soft)', color:'var(--green-text)'}}>Done</span>;
-  return null;
-}
-
-/* Assignee menu (matches screen 11/12) */
-function AssigneeMenu({ allJobs, currentJob, workers, onPick, onUnassign }) {
-  // Compute "Booked at" annotations for each worker by looking at other jobs.
-  const booked = useMemo(() => {
-    const map = {};
-    for (const j of allJobs) {
-      if (j.id === currentJob.id) continue;
-      if (!j.assigneeId) continue;
-      if (!map[j.assigneeId]) map[j.assigneeId] = j.time; // first occurrence
-    }
-    return map;
-  }, [allJobs, currentJob.id]);
-
-  const isAssigned = !!currentJob.assigneeId;
-
-  return (
-    <div
-      className="absolute right-0 top-9 z-30 w-[300px] bg-white rounded-[10px] py-1.5 shadow-pop animate-fade-up"
-    >
-      <ul className="max-h-[260px] overflow-auto menu-scroll">
-        {workers.map(w => {
-          const bookedAt = booked[w.id];
-          const isCurrent = w.id === currentJob.assigneeId;
-          return (
-            <li key={w.id}>
-              <button
-                onClick={() => onPick(w.id, w.name)}
-                className={`w-full flex items-center justify-between gap-3 px-3.5 py-2 text-[13.5px] hover:bg-cream-soft transition ${isCurrent ? 'bg-cream-soft font-medium' : ''}`}
-              >
-                <span className="text-ink truncate">{w.name}</span>
-                {bookedAt && <span className="text-muted-soft text-[12.5px] tabular-nums shrink-0">Booked at {bookedAt}</span>}
-              </button>
-            </li>
-          );
-        })}
-      </ul>
-      {isAssigned && (
-        <>
-          <div className="h-px my-1" style={{background:'var(--line)'}} />
-          <div className="px-2 pb-1.5">
-            <button
-              onClick={onUnassign}
-              className="w-full px-3 py-1.5 rounded-[7px] border border-line-strong text-[13px] text-ink hover:bg-cream-soft transition"
-            >
-              Unassign
-            </button>
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
-
-/* Empty-crew hint shown next to a job's Assign button (matches screen 9 spirit) */
-function EmptyCrewHint({ onClose, onInvite }) {
-  return (
-    <div
-      className="absolute right-0 top-9 z-30 w-[280px] p-4 bg-white rounded-[12px] animate-fade-up"
-      style={{
-        boxShadow:'0 1px 2px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.10), 0 0 0 1px var(--line)',
-        border:'1.5px dashed var(--line-strong)',
-      }}
-    >
-      <div className="flex justify-center mb-3">
-        <Ic.crew width="34" height="34" className="text-ink" />
-      </div>
-      <p className="text-center text-[13px] text-ink leading-snug mb-3">
-        Assign workers to jobs and<br/>keep everyone in sync
-      </p>
-      <button
-        onClick={onInvite}
-        className="w-full h-9 rounded-[8px] bg-black text-white text-[13px] font-medium hover:bg-ink-soft transition"
-        style={{background:'var(--ink)'}}
-      >
-        Invite crew
-      </button>
-    </div>
-  );
-}
-
-/* ──────────────────────────────────────────────────────────────────
-   PICK CLIENT MODAL  (screen 6 / 7 / 8)
-   ────────────────────────────────────────────────────────────────── */
-function PickClientModal({ clients, onClose, onPick, onNew }) {
-  const [q, setQ] = useState('');
-  const filtered = clients.filter(c =>
-    `${c.name} ${c.address || ''} ${c.phone || ''}`.toLowerCase().includes(q.trim().toLowerCase())
-  );
-
-  return (
-    <ModalShell onClose={onClose}>
-      <Card>
-        <header className="px-7 pt-6 pb-4">
-          <h2 className="text-[20px] font-semibold tracking-[-0.01em]">Client</h2>
-          <p className="text-[13px] text-muted mt-0.5">Pick a client or add a new one</p>
-        </header>
-        <div className="px-7">
-          <div className="flex items-center gap-2">
-            <div className="flex-1 relative">
-              <Ic.search width="15" height="15" className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-soft" />
-              <input
-                autoFocus
-                value={q}
-                onChange={e => setQ(e.target.value)}
-                placeholder="Search name, phone or address"
-                className="w-full h-10 pl-9 pr-3 rounded-[8px] border border-line-strong text-[13.5px] placeholder-muted-soft bg-white"
-              />
-            </div>
-            <button
-              onClick={onNew}
-              className="h-10 px-4 rounded-[8px] bg-black text-white text-[13.5px] font-medium hover:bg-ink-soft transition shrink-0"
-              style={{background:'var(--ink)'}}
-            >
-              New client
-            </button>
+        <div class="twin">
+          <div>
+            <div class="stmt" style="font-size:48px;">Not a retention problem.<br>A <em class="serif-it" style="color:var(--warm-2)">deeper</em> one</div>
           </div>
         </div>
+        <blockquote>
+          Why are people paying for a product they're not using — and what would the right product actually be?
+        </blockquote>
+      </div>
 
-        <div className="px-7 pb-7 pt-2 max-h-[440px] overflow-auto menu-scroll">
-          {filtered.length === 0 && q.trim() ? (
-            <div
-              className="mt-3 rounded-[10px] py-7 flex flex-col items-center justify-center gap-3"
-              style={{border:'1.5px dashed var(--line-strong)'}}
-            >
-              <p className="text-[13px] text-muted">No clients found for "{q}"</p>
-              <button
-                onClick={() => setQ('')}
-                className="h-8 px-3.5 rounded-[7px] border border-line-strong text-[13px] text-ink hover:bg-cream-soft transition"
-              >
-                Clear search
-              </button>
-            </div>
-          ) : (
-            <ul>
-              {filtered.map((c, i) => (
-                <li key={c.id}>
-                  <button
-                    onClick={() => onPick(c)}
-                    className="w-full flex items-center justify-between gap-4 py-3 text-left hover:bg-cream-soft -mx-2 px-2 rounded-[6px] transition"
-                    style={{borderTop: i===0 ? 'none' : '1px solid var(--line)'}}
-                  >
-                    <span className="text-[14px] text-ink font-medium">{c.name}</span>
-                    <span className="flex items-center gap-3 shrink-0">
-                      <span className="text-[13px] text-muted-soft">{c.address}</span>
-                      {c.jobs && (
-                        <span className="text-[11.5px] text-muted bg-cream-soft px-2 py-0.5 rounded-full" style={{boxShadow:'0 0 0 1px var(--line)'}}>
-                          {c.jobs} {c.jobs===1?'job':'jobs'}
-                        </span>
-                      )}
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
+      <footer class="frame-foot"><span></span><span>02 / 13</span></footer>
+    </section>
+
+    <!-- ============ SLIDE 4: 03 HOW WE'LL LEARN ============ -->
+    <section class="slide" data-name="learn-how">
+      <header class="frame-head">
+        <div class="eyebrow">03 · How we'll learn</div>
+        <div class="brand"></div>
+      </header>
+
+      <div style="margin-top:60px;">
+        <h2 class="title" style="font-size:54px; max-width: 18ch;">Meeting customers <em class="serif-it" style="color:var(--warm-2)">in the moment</em></h2>
+        <p class="lede" style="margin-top:14px;">Concierge customer success that doubles as product research.</p>
+      </div>
+
+      <div class="steps">
+        <div class="step">
+          <div class="num">01</div>
+          <h5>High-intent moment</h5>
+          <p>When a customer takes a meaningful action in the product, we surface an invitation to talk.</p>
         </div>
-      </Card>
-    </ModalShell>
-  );
-}
-
-/* ──────────────────────────────────────────────────────────────────
-   NEW CLIENT MODAL (screen 2)
-   ────────────────────────────────────────────────────────────────── */
-function NewClientModal({ onClose, onSave }) {
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
-  const [address, setAddress] = useState('');
-  const canSave = name.trim().length > 0;
-
-  const submit = () => {
-    if (!canSave) return;
-    onSave({
-      id: `c_${Date.now()}`,
-      name: name.trim(),
-      email: email.trim(),
-      phone: phone.trim(),
-      address: address.trim(),
-    });
-  };
-
-  return (
-    <ModalShell onClose={onClose}>
-      <Card>
-        <header className="px-7 pt-6 pb-1">
-          <h2 className="text-[20px] font-semibold tracking-[-0.01em]">New client</h2>
-          <p className="text-[13px] text-muted mt-0.5">Who is this job for</p>
-        </header>
-        <div className="px-7 py-5 flex flex-col gap-4">
-          <Field label="Name">
-            <Input value={name} onChange={setName} placeholder="Dr. Emmett Brown" autoFocus />
-          </Field>
-          <Field label="Email">
-            <Input value={email} onChange={setEmail} placeholder="doc.brown@backtothefuture.com" />
-          </Field>
-          <Field label="Phone">
-            <Input value={phone} onChange={setPhone} placeholder="(123) 456-7890" />
-          </Field>
-          <Field label="Address">
-            <Textarea value={address} onChange={setAddress} placeholder="Street, city, country, zip" />
-          </Field>
+        <div class="step">
+          <div class="num">02</div>
+          <h5>Setup help</h5>
+          <p>Our team hops on a call. We help them get their account set up around how their business actually runs.</p>
         </div>
-        <footer className="px-7 pb-6 pt-2 flex items-center justify-between">
-          <button
-            onClick={onClose}
-            className="h-9 px-4 rounded-[8px] border border-line-strong text-[13.5px] text-ink hover:bg-cream-soft transition"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={submit}
-            disabled={!canSave}
-            className={`h-9 px-4 rounded-[8px] text-[13.5px] font-medium transition ${canSave ? 'text-white hover:bg-ink-soft' : 'text-white opacity-40 cursor-not-allowed'}`}
-            style={{background:'var(--ink)'}}
-          >
-            Save client
-          </button>
-        </footer>
-      </Card>
-    </ModalShell>
-  );
-}
-
-/* ──────────────────────────────────────────────────────────────────
-   JOB TITLE MODAL (screen 3)
-   ────────────────────────────────────────────────────────────────── */
-function JobTitleModal({ client, onClose, onBackToClient, onContinue }) {
-  const [title, setTitle] = useState('');
-  const canContinue = title.trim().length > 0;
-
-  return (
-    <ModalShell onClose={onClose}>
-      <div className="w-[560px] max-w-full flex flex-col gap-2.5 animate-scale-in">
-        <SummaryCard label="Client" value={client.name} icon={<Ic.user width="15" height="15" />} onClick={onBackToClient} />
-        <Card>
-          <header className="px-7 pt-6 pb-4">
-            <h2 className="text-[20px] font-semibold tracking-[-0.01em]">What should be done</h2>
-          </header>
-          <div className="px-7">
-            <Field label="Job title">
-              <Input value={title} onChange={setTitle} placeholder="Leak under kitchen sink" autoFocus />
-            </Field>
-            <div className="mt-3 flex flex-wrap gap-1.5">
-              {QUICK_PICKS.map(qp => (
-                <button
-                  key={qp}
-                  onClick={() => setTitle(qp)}
-                  className={`h-7 px-3 rounded-full text-[12.5px] border transition ${title===qp ? 'bg-ink text-white border-ink' : 'bg-white text-ink border-line-strong hover:bg-cream-soft'}`}
-                  style={title===qp ? {background:'var(--ink)', borderColor:'var(--ink)'} : {}}
-                >
-                  {qp}
-                </button>
-              ))}
-            </div>
-          </div>
-          <footer className="px-7 pb-6 pt-6 flex items-center justify-end">
-            <button
-              onClick={() => canContinue && onContinue(title.trim())}
-              disabled={!canContinue}
-              className={`h-9 px-5 rounded-[8px] text-[13.5px] font-medium transition ${canContinue ? 'text-white hover:bg-ink-soft' : 'text-white opacity-40 cursor-not-allowed'}`}
-              style={{background:'var(--ink)'}}
-            >
-              Continue
-            </button>
-          </footer>
-        </Card>
-      </div>
-    </ModalShell>
-  );
-}
-
-/* ──────────────────────────────────────────────────────────────────
-   WHEN MODAL (screen 4)
-   ────────────────────────────────────────────────────────────────── */
-function WhenModal({ client, title, mode='create', initialDateISO, initialTime, onClose, onBackToTitle, onCreate, onScheduleLater }) {
-  const isEdit = mode === 'edit';
-  const today = new Date();
-  const initial = initialDateISO ? parseLocalISO(initialDateISO) : today;
-  const [weekStart, setWeekStart] = useState(initial);
-  const [selectedDate, setSelectedDate] = useState(0);
-  const [selectedTime, setSelectedTime] = useState(initialTime || '9:00 AM');
-
-  const days = useMemo(() => {
-    const arr = [];
-    for (let i = 0; i < 7; i++) {
-      const d = new Date(weekStart);
-      d.setDate(d.getDate() + i);
-      arr.push(d);
-    }
-    return arr;
-  }, [weekStart]);
-
-  const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-  const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-
-  const headerLabel = (() => {
-    const sel = days[selectedDate];
-    if (sel && sel.toDateString() === today.toDateString()) {
-      return `Today, ${monthNames[sel.getMonth()]} ${sel.getDate()}`;
-    }
-    return `${monthNames[sel.getMonth()]} ${sel.getDate()}`;
-  })();
-
-  const shiftWeek = (delta) => {
-    const d = new Date(weekStart); d.setDate(d.getDate() + delta*7); setWeekStart(d);
-    setSelectedDate(0);
-  };
-
-  // Some times are visually disabled to mimic the screenshot.
-  const isDisabled = (t) => {
-    // Past-time mock — disable 8:00 AM (screen showed 8:00 AM faded).
-    if (t === '8:00 AM') return true;
-    return false;
-  };
-
-  const dateLabel = (() => {
-    const sel = days[selectedDate];
-    return `${dayNames[sel.getDay()]} ${sel.getDate()}`;
-  })();
-  const selectedDateISO = dateToISO(days[selectedDate]);
-
-  return (
-    <ModalShell onClose={onClose}>
-      <div className="w-[560px] max-w-full flex flex-col gap-2.5 animate-scale-in">
-        <SummaryCard label="Client" value={client.name} icon={<Ic.user width="15" height="15" />} />
-        <SummaryCard
-          label="Job"
-          value={title}
-          icon={<Ic.jobs width="15" height="15" />}
-          onClick={isEdit ? null : onBackToTitle}
-        />
-        <Card>
-          <header className="px-7 pt-6 pb-4">
-            <h2 className="text-[20px] font-semibold tracking-[-0.01em]">{isEdit ? 'Reschedule' : 'When'}</h2>
-          </header>
-          <div className="px-7">
-            {/* Week header with arrows */}
-            <div className="flex items-center justify-between">
-              <button onClick={() => shiftWeek(-1)} className="w-9 h-9 rounded-[8px] border border-line-strong flex items-center justify-center hover:bg-cream-soft transition">
-                <Ic.arrowLeft width="15" height="15" />
-              </button>
-              <div className="text-[13.5px] text-ink font-medium">{headerLabel}</div>
-              <button onClick={() => shiftWeek(1)} className="w-9 h-9 rounded-[8px] border border-line-strong flex items-center justify-center hover:bg-cream-soft transition">
-                <Ic.arrowRight width="15" height="15" />
-              </button>
-            </div>
-
-            {/* Day grid */}
-            <div className="mt-3 grid grid-cols-7 gap-2">
-              {days.map((d, i) => {
-                const selected = i === selectedDate;
-                return (
-                  <button
-                    key={i}
-                    onClick={() => setSelectedDate(i)}
-                    className={`flex flex-col items-center py-2 rounded-[10px] border text-center transition ${selected ? 'border-ink bg-white' : 'border-transparent hover:bg-cream-soft'}`}
-                    style={selected ? {borderColor:'var(--ink)'} : {}}
-                  >
-                    <span className={`text-[11.5px] ${selected ? 'text-ink' : 'text-muted'}`}>{dayNames[d.getDay()]}</span>
-                    <span className={`text-[15px] font-medium tabular-nums mt-0.5 ${selected ? 'text-ink' : 'text-muted'}`}>{d.getDate()}</span>
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Time grid */}
-            <div className="mt-5 grid grid-cols-4 gap-2">
-              {TIME_SLOTS.map(t => {
-                const selected = selectedTime === t;
-                const disabled = isDisabled(t);
-                if (selected) {
-                  return (
-                    <button
-                      key={t}
-                      onClick={() => !disabled && setSelectedTime(t)}
-                      className="h-10 rounded-[8px] text-[13px] font-medium text-white tabular-nums"
-                      style={{background:'var(--ink)'}}
-                    >
-                      {t}
-                    </button>
-                  );
-                }
-                if (disabled) {
-                  return (
-                    <button
-                      key={t}
-                      disabled
-                      className="h-10 rounded-[8px] text-[13px] tabular-nums cursor-not-allowed"
-                      style={{background:'var(--cream-soft)', color:'var(--muted-soft)'}}
-                    >
-                      {t}
-                    </button>
-                  );
-                }
-                return (
-                  <button
-                    key={t}
-                    onClick={() => setSelectedTime(t)}
-                    className="h-10 rounded-[8px] text-[13px] tabular-nums text-ink border border-line-strong bg-white hover:bg-cream-soft transition"
-                  >
-                    {t}
-                  </button>
-                );
-              })}
-              <button
-                className="h-10 rounded-[8px] text-[13px] text-ink flex items-center justify-center gap-1.5 hover:bg-cream-soft transition"
-                style={{border:'1.5px dashed var(--line-strong)'}}
-                onClick={() => alert('Custom time picker — out of scope for prototype')}
-              >
-                <Ic.link width="13" height="13" />
-                Other...
-              </button>
-            </div>
-          </div>
-
-          <footer className="px-7 pb-6 pt-6 flex items-center justify-between">
-            <button
-              onClick={onScheduleLater}
-              className="h-9 px-4 rounded-[8px] border border-line-strong text-[13.5px] text-ink hover:bg-cream-soft transition"
-            >
-              Schedule later
-            </button>
-            <button
-              onClick={() => onCreate({ time: selectedTime, dateLabel, dateISO: selectedDateISO })}
-              className="h-9 px-5 rounded-[8px] text-white text-[13.5px] font-medium hover:bg-ink-soft transition"
-              style={{background:'var(--ink)'}}
-            >
-              {isEdit ? 'Save' : 'Create job'}
-            </button>
-          </footer>
-        </Card>
-      </div>
-    </ModalShell>
-  );
-}
-
-/* ──────────────────────────────────────────────────────────────────
-   JOB SCREEN — placeholder details page
-   ────────────────────────────────────────────────────────────────── */
-function JobScreen({ job, returnView, onBack }) {
-  const backLabel = returnView === 'jobs' ? 'Back to Jobs' : 'Back to Today';
-  return (
-    <div className="h-full overflow-auto animate-fade-in">
-      <div className="px-10 pt-7 pb-2">
-        <button
-          onClick={onBack}
-          className="inline-flex items-center gap-1.5 text-[13px] text-muted hover:text-ink transition"
-        >
-          <Ic.chevronLeft width="14" height="14" />
-          {backLabel}
-        </button>
-      </div>
-
-      <div className="px-10 pt-4">
-        <h1 className="text-[28px] font-semibold tracking-[-0.02em] leading-tight">Job Details Page</h1>
-      </div>
-    </div>
-  );
-}
-
-/* ──────────────────────────────────────────────────────────────────
-   CREW VIEW + INVITE
-   ────────────────────────────────────────────────────────────────── */
-function CrewView({ workers, setWorkers, setModal, pushToast }) {
-  const removeWorker = (id) => {
-    setWorkers(prev => prev.filter(w => w.id !== id));
-  };
-
-  return (
-    <div className="h-full overflow-auto">
-      <div className="px-10 pt-10 pb-2 flex items-start justify-between gap-6">
-        <div>
-          <h1 className="text-[28px] font-semibold tracking-[-0.02em] leading-tight">Crew</h1>
-          <p className="mt-1 text-[13.5px] text-muted">
-            {workers.length === 0 ? 'No workers yet' : `${workers.length} ${workers.length===1?'worker':'workers'} on the team`}
-          </p>
+        <div class="step">
+          <div class="num">03</div>
+          <h5>Real signal</h5>
+          <p>Every conversation produces two things: a customer with a working setup, and learnings that feed product decisions.</p>
         </div>
-        <button
-          onClick={() => setModal({ kind:'inviteCrew' })}
-          className="px-4 h-9 rounded-[8px] text-white text-[13.5px] font-medium hover:bg-ink-soft transition"
-          style={{background:'var(--ink)'}}
-        >
-          Invite crew
-        </button>
       </div>
 
-      <div className="px-10 mt-6 pb-10">
-        {workers.length === 0 ? (
-          <div
-            className="rounded-[12px] flex flex-col items-center justify-center gap-4 px-6 py-16"
-            style={{border:'1.5px dashed var(--line-strong)'}}
-          >
-            <Ic.crew width="42" height="42" className="text-ink" />
-            <div className="text-center">
-              <p className="text-[14px] text-ink leading-snug">Assign workers to jobs and</p>
-              <p className="text-[14px] text-ink leading-snug">keep everyone in sync</p>
-            </div>
-            <button
-              onClick={() => setModal({ kind:'inviteCrew' })}
-              className="h-9 px-4 rounded-[8px] text-white text-[13.5px] font-medium hover:bg-ink-soft transition"
-              style={{background:'var(--ink)'}}
-            >
-              Invite crew
-            </button>
-          </div>
-        ) : (
-          <ul className="rounded-[12px] overflow-hidden" style={{border:'1px solid var(--line)'}}>
-            {workers.map((w, i) => (
-              <li key={w.id} className="flex items-center justify-between px-5 py-3.5" style={{borderTop: i===0 ? 'none' : '1px solid var(--line)'}}>
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-cream flex items-center justify-center text-[13px] font-semibold text-ink">
-                    {w.name.split(' ').map(p=>p[0]).slice(0,2).join('')}
-                  </div>
-                  <span className="text-[14px] text-ink font-medium">{w.name}</span>
-                </div>
-                <button
-                  onClick={() => removeWorker(w.id)}
-                  className="text-[12.5px] text-muted hover:text-ink transition px-2 py-1 rounded-md hover:bg-cream-soft"
-                >
-                  Remove
-                </button>
-              </li>
-            ))}
+      <footer class="frame-foot"><span></span><span>03 / 13</span></footer>
+    </section>
+
+    <!-- ============ SLIDE 12: 08 THIS MONTH ============ -->
+    <section class="slide" data-name="this-month">
+      <header class="frame-head">
+        <div class="eyebrow">04 · This month</div>
+        <div class="brand"></div>
+      </header>
+
+      <div style="margin-top:80px;">
+        <h2 class="title">Two tracks. <em class="serif-it" style="color:var(--warm-2)">One quarter</em></h2>
+      </div>
+
+      <div class="tracks">
+        <div class="track">
+          <div class="label">Track A</div>
+          <h4>Build the core</h4>
+          <p class="desc">The foundational pieces every FSM product needs.</p>
+          <ul>
+            <li>Photos on Jobs</li>
+            <li>Notes on Jobs</li>
+            <li>Day-planning (visits → jobs)</li>
+            <li>Scheduling spine</li>
           </ul>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function InviteCrewModal({ onClose, onSave }) {
-  const [rows, setRows] = useState(['']);
-  const update = (i, v) => setRows(rows.map((r, j) => j===i ? v : r));
-  const add = () => setRows([...rows, '']);
-  const remove = (i) => setRows(rows.filter((_, j) => j !== i));
-  const valid = rows.map(r => r.trim()).filter(Boolean);
-
-  return (
-    <ModalShell onClose={onClose}>
-      <Card>
-        <header className="px-7 pt-6 pb-1">
-          <h2 className="text-[20px] font-semibold tracking-[-0.01em]">Invite crew</h2>
-          <p className="text-[13px] text-muted mt-0.5">Add workers by name. They'll appear in the assignee list.</p>
-        </header>
-        <div className="px-7 py-5 flex flex-col gap-2.5">
-          {rows.map((r, i) => (
-            <div key={i} className="flex items-center gap-2">
-              <Input value={r} onChange={(v)=>update(i,v)} placeholder="James Albright" autoFocus={i===rows.length-1} />
-              {rows.length > 1 && (
-                <button
-                  onClick={() => remove(i)}
-                  className="w-9 h-10 rounded-[8px] border border-line-strong flex items-center justify-center text-muted hover:text-ink hover:bg-cream-soft transition shrink-0"
-                >
-                  <Ic.close width="14" height="14" />
-                </button>
-              )}
-            </div>
-          ))}
-          <button
-            onClick={add}
-            className="self-start text-[13px] text-muted hover:text-ink transition flex items-center gap-1.5"
-          >
-            <Ic.plus width="13" height="13" />
-            Add another
-          </button>
         </div>
-        <footer className="px-7 pb-6 pt-2 flex items-center justify-between">
-          <button
-            onClick={onClose}
-            className="h-9 px-4 rounded-[8px] border border-line-strong text-[13.5px] text-ink hover:bg-cream-soft transition"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={() => valid.length && onSave(valid)}
-            disabled={!valid.length}
-            className={`h-9 px-4 rounded-[8px] text-[13.5px] font-medium transition ${valid.length ? 'text-white hover:bg-ink-soft' : 'text-white opacity-40 cursor-not-allowed'}`}
-            style={{background:'var(--ink)'}}
-          >
-            Add to crew
-          </button>
-        </footer>
-      </Card>
-    </ModalShell>
-  );
-}
-
-/* ──────────────────────────────────────────────────────────────────
-   PLACEHOLDER + CLIENTS view
-   ────────────────────────────────────────────────────────────────── */
-function PlaceholderView({ label }) {
-  return (
-    <div className="h-full flex flex-col">
-      <div className="px-10 pt-10 pb-2">
-        <h1 className="text-[28px] font-semibold tracking-[-0.02em] leading-tight">{label}</h1>
-        <p className="mt-1 text-[13.5px] text-muted">Section preview — out of scope for this prototype</p>
-      </div>
-      <div className="px-10 mt-6 pb-10 flex-1">
-        <div
-          className="rounded-[12px] h-full flex items-center justify-center text-muted-soft text-[14px]"
-          style={{border:'1.5px dashed var(--line-strong)', minHeight:'320px'}}
-        >
-          Nothing to show here in the prototype
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ClientsView({ clients, onAdd }) {
-  return (
-    <div className="h-full overflow-auto">
-      <div className="px-10 pt-10 pb-2 flex items-start justify-between gap-6">
-        <div>
-          <h1 className="text-[28px] font-semibold tracking-[-0.02em] leading-tight">Clients</h1>
-          <p className="mt-1 text-[13.5px] text-muted">
-            {clients.length === 0 ? 'No clients yet' : `${clients.length} ${clients.length===1?'client':'clients'}`}
-          </p>
-        </div>
-        <button
-          onClick={onAdd}
-          className="px-4 h-9 rounded-[8px] text-white text-[13.5px] font-medium hover:bg-ink-soft transition"
-          style={{background:'var(--ink)'}}
-        >
-          New client
-        </button>
-      </div>
-      <div className="px-10 mt-6 pb-10">
-        {clients.length === 0 ? (
-          <div className="rounded-[12px] flex items-center justify-center text-muted-soft text-[14px] h-[320px]" style={{border:'1.5px dashed var(--line-strong)'}}>
-            No clients yet — they'll appear after you create your first job
-          </div>
-        ) : (
-          <ul className="rounded-[12px] overflow-hidden" style={{border:'1px solid var(--line)'}}>
-            {clients.map((c, i) => (
-              <li key={c.id} className="flex items-center justify-between px-5 py-3.5" style={{borderTop: i===0 ? 'none':'1px solid var(--line)'}}>
-                <span className="text-[14px] text-ink font-medium">{c.name}</span>
-                <span className="text-[13px] text-muted-soft">{c.address}</span>
-              </li>
-            ))}
+        <div class="track">
+          <div class="label">Track B</div>
+          <h4>Learn who it's for</h4>
+          <p class="desc">Concierge setup calls that double as product research.</p>
+          <ul>
+            <li>In-product invitations at moments of intent</li>
+            <li>Setup help, real conversation, real signal</li>
+            <li>Findings feed product decisions weekly</li>
           </ul>
-        )}
+        </div>
       </div>
-    </div>
-  );
-}
 
-/* ──────────────────────────────────────────────────────────────────
-   SHARED PRIMITIVES
-   ────────────────────────────────────────────────────────────────── */
-function ModalShell({ children, onClose }) {
-  // Lock scroll while open
-  useEffect(() => {
-    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [onClose]);
-  return (
-    <div
-      className="fixed inset-0 z-40 flex items-start justify-center pt-12 pb-12 px-6 overflow-auto animate-fade-in"
-      style={{background:'rgba(255,255,255,0.78)', backdropFilter:'blur(2px)'}}
-      onClick={onClose}
-    >
-      <button
-        aria-label="Close"
-        onClick={onClose}
-        className="fixed top-7 left-7 w-9 h-9 rounded-full bg-white border border-line-strong flex items-center justify-center hover:bg-cream-soft transition"
-      >
-        <Ic.close width="14" height="14" />
-      </button>
-      <div className="relative" onClick={(e) => e.stopPropagation()}>{children}</div>
-    </div>
-  );
-}
+      <footer class="frame-foot"><span></span><span>04 / 13</span></footer>
+    </section>
 
-function Card({ children, className='' }) {
-  return (
-    <div className={`w-[560px] max-w-full bg-white rounded-[14px] shadow-modal animate-scale-in ${className}`}>
-      {children}
-    </div>
-  );
-}
+    <!-- ============ SLIDE 13: 09 OBJECTIVE ============ -->
+    <section class="slide" data-name="objective">
+      <header class="frame-head">
+        <div class="eyebrow">05 · Our objective</div>
+        <div class="brand"></div>
+      </header>
 
-function SummaryCard({ label, value, icon, onClick }) {
-  return (
-    <button
-      onClick={onClick}
-      disabled={!onClick}
-      className={`w-full bg-white rounded-[12px] px-5 py-3.5 flex items-center justify-between text-left animate-scale-in ${onClick ? 'hover:bg-cream-soft cursor-pointer' : 'cursor-default'}`}
-      style={{boxShadow:'0 0 0 1px var(--line)'}}
-    >
-      <span className="flex items-center gap-2 text-[13.5px] text-ink">
-        <span className="text-muted">{icon}</span>
-        <span className="font-medium">{label}</span>
-      </span>
-      <span className="text-[13.5px] text-ink">{value}</span>
-    </button>
-  );
-}
+      <div style="margin-top:80px;">
+        <h2 class="title">By end of month, <em class="serif-it" style="color:var(--warm-2)">one sentence</em></h2>
+      </div>
 
-function Field({ label, children }) {
-  return (
-    <label className="block">
-      <span className="block text-[12.5px] font-medium text-ink mb-1.5">{label}</span>
-      {children}
-    </label>
-  );
-}
+      <div class="tracks tracks-three">
+        <div class="track">
+          <div class="label">Who</div>
+          <h4>Our customer</h4>
+          <p class="desc">A specific person, in a specific kind of business — not "field-service" in general.</p>
+        </div>
+        <div class="track">
+          <div class="label">What</div>
+          <h4>The problem we solve</h4>
+          <p class="desc">The one thing that makes their day worse — that we make better.</p>
+        </div>
+        <div class="track">
+          <div class="label">Why</div>
+          <h4>Why us</h4>
+          <p class="desc">What we do differently — and why that matters more than another tool in the stack.</p>
+        </div>
+      </div>
 
-function Input({ value, onChange, placeholder, autoFocus }) {
-  return (
-    <input
-      autoFocus={autoFocus}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      placeholder={placeholder}
-      className="w-full h-10 px-3 rounded-[8px] border border-line-strong text-[13.5px] placeholder-muted-soft bg-white"
-    />
-  );
-}
+      <p class="obj-closer">Not a hypothesis. A statement supported by real conversations and real behavior</p>
 
-function Textarea({ value, onChange, placeholder }) {
-  return (
-    <textarea
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      placeholder={placeholder}
-      rows={3}
-      className="w-full px-3 py-2.5 rounded-[8px] border border-line-strong text-[13.5px] placeholder-muted-soft bg-white resize-none"
-    />
-  );
-}
+      <footer class="frame-foot"><span></span><span>05 / 13</span></footer>
+    </section>
+    </section>
 
-/* ──────────────────────────────────────────────────────────────────
-   TOAST  (matches screen 5)
-   ────────────────────────────────────────────────────────────────── */
-function Toast({ toast, onDismiss, onView }) {
-  return (
-    <div
-      className="fixed left-1/2 bottom-7 z-50 flex items-center gap-3 pl-4 pr-1 py-1.5 rounded-full text-white text-[13.5px] animate-slide-up"
-      style={{background:'var(--ink)', boxShadow:'0 8px 24px rgba(0,0,0,0.25)'}}
-    >
-      <span className="flex items-center gap-2">
-        <span className="w-4 h-4 rounded-full flex items-center justify-center" style={{background:'rgba(255,255,255,0.18)'}}>
-          <Ic.check width="11" height="11" />
-        </span>
-        {toast.message}
-      </span>
-      {toast.jobId && (
-        <button
-          onClick={onView}
-          className="h-7 px-3 rounded-full bg-white text-ink text-[12.5px] font-medium hover:bg-cream transition"
-        >
-          View
-        </button>
-      )}
-    </div>
-  );
-}
+    <!-- ============ SLIDE 5: 04 ONBOARDING ============ -->
+    <section class="slide" data-name="onboarding">
+      <header class="frame-head">
+        <div class="eyebrow">06 · Who's coming in</div>
+        <div class="brand"></div>
+      </header>
 
-/* ──────────────────────────────────────────────────────────────────
-   DEMO PANEL  (helper for prototype navigation)
-   ────────────────────────────────────────────────────────────────── */
-function DemoPanel({ onLoad, onLoadStatuses, onReset, onSeedClients, emptyVariant, setEmptyVariant }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <div className="fixed bottom-5 right-5 z-50">
-      {open && (
-        <div className="mb-2 w-[280px] bg-white rounded-[12px] p-3 shadow-pop animate-fade-up">
-          <div className="text-[12px] font-semibold text-ink mb-1">Prototype controls</div>
-          <p className="text-[11.5px] text-muted leading-snug mb-3">Quickly switch between prototype states.</p>
-          <div className="flex flex-col gap-1.5">
-            <button
-              onClick={onLoad}
-              className="h-8 px-3 rounded-[7px] text-white text-[12.5px] font-medium hover:bg-ink-soft transition text-left"
-              style={{background:'var(--ink)'}}
-            >
-              Load full demo data (screen 10)
-            </button>
-            <button
-              onClick={onLoadStatuses}
-              className="h-8 px-3 rounded-[7px] border border-line-strong text-[12.5px] text-ink hover:bg-cream-soft transition text-left"
-            >
-              Load statuses showcase
-            </button>
-            <button
-              onClick={onSeedClients}
-              className="h-8 px-3 rounded-[7px] border border-line-strong text-[12.5px] text-ink hover:bg-cream-soft transition text-left"
-            >
-              Seed sample clients only
-            </button>
-            <button
-              onClick={onReset}
-              className="h-8 px-3 rounded-[7px] border border-line-strong text-[12.5px] text-ink hover:bg-cream-soft transition text-left flex items-center gap-1.5"
-            >
-              <Ic.reset width="13" height="13" />
-              Reset workspace
-            </button>
+      <div style="margin-top:44px;">
+        <h2 class="title" style="font-size:48px;">Now we know who's coming&nbsp;in</h2>
+      </div>
+
+      <div class="three-screens">
+        <figure>
+          <img src="img/layout-4.png" alt="Onboarding step 1: industry">
+          <figcaption>01 · Industry</figcaption>
+        </figure>
+        <figure>
+          <img src="img/layout-5.png" alt="Onboarding step 2: team size">
+          <figcaption>02 · Team size</figcaption>
+        </figure>
+        <figure>
+          <img src="img/layout-6.png" alt="Onboarding step 3: pain">
+          <figcaption>03 · Top pain</figcaption>
+        </figure>
+      </div>
+
+      <footer class="frame-foot"><span></span><span>06 / 13</span></footer>
+    </section>
+
+    <!-- ============ SLIDE 6: INDUSTRY MIX ============ -->
+    <section class="slide" data-name="mix">
+      <header class="frame-head">
+        <div class="eyebrow">06 · Who's coming in · industry mix</div>
+        <div class="brand"></div>
+      </header>
+
+      <div class="chart-fullbleed">
+        <img src="img/industry-chart.png" alt="FS segments by industry — US">
+      </div>
+
+      <footer class="frame-foot"><span></span><span>07 / 13</span></footer>
+    </section>
+
+    <!-- ============ SLIDE 7: 05 ACTIVATION PROBLEM ============ -->
+    <section class="slide" data-name="activation">
+      <header class="frame-head">
+        <div class="eyebrow">07 · The activation problem</div>
+        <div class="brand"></div>
+      </header>
+
+      <div style="margin-top:60px;">
+        <h2 class="title" style="max-width: 24ch;">They like seeing data. <em class="serif-it" style="color:var(--warm-2)">They won't pay for it</em></h2>
+      </div>
+
+      <div class="funnel-row">
+        <img src="img/funnel-chart.png" alt="Job created funnel — US, w=14d">
+        <div class="insight">
+          <div class="big-stat">1.14<sub>%</sub></div>
+          <p>of installs <strong>ever create four jobs</strong></p>
+        </div>
+      </div>
+
+      <footer class="frame-foot"><span></span><span>08 / 13</span></footer>
+    </section>
+
+    <!-- ============ SLIDE 8: 06 HYPOTHESIS (DARK) ============ -->
+    <section class="slide dark" data-name="hypothesis">
+      <div class="hyp-stack">
+        <div class="eyebrow-dark">08 · The hypothesis</div>
+        <h2>Don't ask <em>"what's the&nbsp;job"</em><br>Ask <em>"what's planned&nbsp;today"</em></h2>
+      </div>
+      <footer class="frame-foot"><span></span><span style="color:#948C7A;">09 / 13</span></footer>
+    </section>
+
+    <!-- ============ SLIDE 9: WEB FLOW ============ -->
+    <section class="slide" data-name="web-flow">
+      <header class="frame-head">
+        <div class="eyebrow">08 · The hypothesis · web</div>
+        <div class="brand"></div>
+      </header>
+
+      <div style="margin-top:60px;">
+        <h2 class="title" style="font-size:54px; max-width: 24ch;">Same data. <em class="serif-it" style="color:var(--warm-2)">Different shape</em></h2>
+      </div>
+
+      <div class="flow-row">
+        <figure>
+          <img src="img/frame-50.png" alt="Today view">
+          <figcaption><span class="step-n">01</span> Today</figcaption>
+        </figure>
+        <figure>
+          <img src="img/frame-51.png" alt="New client">
+          <figcaption><span class="step-n">02</span> Client</figcaption>
+        </figure>
+        <figure>
+          <img src="img/frame-52.png" alt="Job description">
+          <figcaption><span class="step-n">03</span> What</figcaption>
+        </figure>
+        <figure>
+          <img src="img/frame-53.png" alt="Schedule when">
+          <figcaption><span class="step-n">04</span> When</figcaption>
+        </figure>
+      </div>
+
+      <footer class="frame-foot"><span></span><span>10 / 13</span></footer>
+    </section>
+
+    <!-- ============ SLIDE 10: MOBILE ============ -->
+    <section class="slide" data-name="mobile">
+      <header class="frame-head">
+        <div class="eyebrow">08 · The hypothesis · mobile</div>
+        <div class="brand"></div>
+      </header>
+
+      <div style="margin-top:44px;">
+        <h2 class="title" style="font-size:48px;">Mobile is where the day actually&nbsp;happens</h2>
+      </div>
+
+      <div class="mobile-flow">
+        <figure>
+          <div class="phone-placeholder">
+            <div class="ph-label">Today</div>
+            <div class="ph-hint">Drop into <code>img/iphone-today.png</code></div>
           </div>
+          <figcaption><span class="step-n">01</span>Today</figcaption>
+        </figure>
+        <figure>
+          <img src="img/iphone-newclient.png" alt="iPhone — new client">
+          <figcaption><span class="step-n">02</span>Client</figcaption>
+        </figure>
+        <figure>
+          <img src="img/iphone-job.png" alt="iPhone — what should be done">
+          <figcaption><span class="step-n">03</span>What</figcaption>
+        </figure>
+        <figure>
+          <div class="phone-placeholder">
+            <div class="ph-label">When</div>
+            <div class="ph-hint">Drop into <code>img/iphone-when.png</code></div>
+          </div>
+          <figcaption><span class="step-n">04</span>When</figcaption>
+        </figure>
+      </div>
 
-          <div className="mt-3 pt-3" style={{borderTop:'1px solid var(--line)'}}>
-            <div className="text-[11px] uppercase tracking-wide text-muted-soft mb-1.5">Empty Today copy</div>
-            <div className="flex p-0.5 rounded-[8px] bg-cream-soft" style={{boxShadow:'0 0 0 1px var(--line)'}}>
-              {[
-                { id:'original', label:'Original' },
-                { id:'alternative', label:'Alternative' },
-              ].map(opt => {
-                const active = emptyVariant === opt.id;
-                return (
-                  <button
-                    key={opt.id}
-                    onClick={() => setEmptyVariant(opt.id)}
-                    className={`flex-1 h-7 rounded-[6px] text-[12px] font-medium transition ${active ? 'bg-white text-ink' : 'text-muted hover:text-ink'}`}
-                    style={active ? {boxShadow:'0 1px 2px rgba(0,0,0,0.06), 0 0 0 1px var(--line)'} : {}}
-                  >
-                    {opt.label}
-                  </button>
-                );
-              })}
+      <footer class="frame-foot"><span></span><span>11 / 13</span></footer>
+    </section>
+
+    <!-- ============ SLIDE 11: ROADMAP ============ -->
+    <section class="slide" data-name="roadmap">
+      <header class="frame-head">
+        <div class="eyebrow">09 · Towards a calendar</div>
+        <div class="brand"></div>
+      </header>
+
+      <div style="margin-top:60px;">
+        <h2 class="title" style="max-width: 22ch;">What ships now is the <em class="serif-it" style="color:var(--warm-2)">spine</em> of a&nbsp;calendar</h2>
+      </div>
+
+      <div class="road">
+        <div class="road-wrap">
+          <div class="road-line"></div>
+          <div class="road-stops three-stops">
+            <div class="road-stop now">
+              <div class="marker"></div>
+              <div class="when">Now · April</div>
+              <h4>Today</h4>
+              <p>Plan the day. Visits, not jobs. The job model lives underneath.</p>
+            </div>
+            <div class="road-stop">
+              <div class="marker"></div>
+              <div class="when">Next</div>
+              <h4>Scheduling</h4>
+              <p>Week and month views. Drag-and-drop across days. The work, laid out in time.</p>
+            </div>
+            <div class="road-stop">
+              <div class="marker"></div>
+              <div class="when">Later</div>
+              <h4>Conflicts &amp; recurring</h4>
+              <p>Crew assignment, double-booking, recurring visits — the polish that makes a calendar trustworthy.</p>
             </div>
           </div>
         </div>
-      )}
-      <button
-        onClick={() => setOpen(v=>!v)}
-        className="h-9 px-3.5 rounded-full bg-white text-ink text-[12.5px] font-medium hover:bg-cream-soft transition flex items-center gap-1.5"
-        style={{boxShadow:'0 4px 14px rgba(0,0,0,0.10), 0 0 0 1px var(--line-strong)'}}
-      >
-        <span className="w-1.5 h-1.5 rounded-full" style={{background: open ? '#22C55E' : '#9CA3AF'}}></span>
-        Demo controls
-      </button>
-    </div>
-  );
-}
+      </div>
 
-/* ──────────────────────────────────────────────────────────────────
-   MOUNT
-   ────────────────────────────────────────────────────────────────── */
-ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+      <footer class="frame-foot"><span></span><span>12 / 13</span></footer>
+    </section>
+
+    <!-- ============ SLIDE 14: END ============ -->
+    <section class="slide dark" data-name="end">
+      <div class="end-stack">
+        <div class="small">Monthly Review · April 2026</div>
+        <div class="big">Thank you</div>
+      </div>
+      <footer class="frame-foot"><span></span><span style="color:#948C7A;">13 / 13</span></footer>
+    </section>
+
+  </div>
+</div>
+
+<!-- nav chrome -->
+<div class="dots" id="dots"></div>
+<div class="chrome" id="chrome">
+  <button id="prev" aria-label="Previous">←</button>
+  <span class="counter" id="counter">1 / 14</span>
+  <button id="next" aria-label="Next">→</button>
+</div>
+<div class="hint" id="hint">← → · space to advance</div>
+
+<script>
+(() => {
+  const slides = Array.from(document.querySelectorAll('.slide'));
+  const deck = document.getElementById('deck');
+  const counter = document.getElementById('counter');
+  const dotsHost = document.getElementById('dots');
+  const chrome = document.getElementById('chrome');
+  const dots = document.getElementById('dots');
+  const hint = document.getElementById('hint');
+
+  let idx = 0;
+
+  // build dot indicators
+  slides.forEach((s, i) => {
+    const d = document.createElement('div');
+    d.className = 'dot' + (i === 0 ? ' active' : '');
+    d.addEventListener('click', () => go(i));
+    dotsHost.appendChild(d);
+  });
+  const dotEls = Array.from(dotsHost.querySelectorAll('.dot'));
+
+  function go(n){
+    idx = Math.max(0, Math.min(slides.length - 1, n));
+    slides.forEach((s, i) => s.classList.toggle('is-active', i === idx));
+    dotEls.forEach((d, i) => d.classList.toggle('active', i === idx));
+    counter.textContent = `${idx + 1} / ${slides.length}`;
+    history.replaceState(null, '', '#' + (idx + 1));
+  }
+
+  // initial state
+  slides[0].classList.add('is-active');
+  // honor hash on load
+  const hash = parseInt(location.hash.slice(1), 10);
+  if (!isNaN(hash) && hash >= 1 && hash <= slides.length) go(hash - 1);
+
+  // keyboard
+  document.addEventListener('keydown', (e) => {
+    if (['ArrowRight','PageDown',' '].includes(e.key)) { e.preventDefault(); go(idx + 1); }
+    else if (['ArrowLeft','PageUp'].includes(e.key)) { e.preventDefault(); go(idx - 1); }
+    else if (e.key === 'Home') { e.preventDefault(); go(0); }
+    else if (e.key === 'End') { e.preventDefault(); go(slides.length - 1); }
+  });
+
+  // click to advance (avoid links)
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('a, button, .dot, .chrome')) return;
+    go(idx + 1);
+  });
+
+  document.getElementById('next').addEventListener('click', (e) => { e.stopPropagation(); go(idx + 1); });
+  document.getElementById('prev').addEventListener('click', (e) => { e.stopPropagation(); go(idx - 1); });
+
+  // show chrome on movement
+  let chromeT = null;
+  const showChrome = () => {
+    chrome.classList.add('show');
+    dots.classList.add('show');
+    clearTimeout(chromeT);
+    chromeT = setTimeout(() => {
+      chrome.classList.remove('show');
+      dots.classList.remove('show');
+    }, 2400);
+  };
+  document.addEventListener('mousemove', showChrome);
+  document.addEventListener('keydown', showChrome);
+  showChrome();
+
+  // hide hint after first interaction
+  setTimeout(() => hint.classList.add('fade'), 4000);
+  document.addEventListener('keydown', () => hint.classList.add('fade'), { once: true });
+  document.addEventListener('click', () => hint.classList.add('fade'), { once: true });
+
+  // ---------- responsive scaling ----------
+  function fit(){
+    const W = window.innerWidth;
+    const H = window.innerHeight;
+    const sw = 1280, sh = 720;
+    const scale = Math.min(W / sw, H / sh);
+    deck.style.transform = `scale(${scale})`;
+  }
+  window.addEventListener('resize', fit);
+  fit();
+})();
 </script>
+
 </body>
 </html>
